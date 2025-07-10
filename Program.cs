@@ -9,6 +9,8 @@ namespace ERP_Fix
     {
         static void Main(string[] args)
         {
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
+
             Shell shell = new Shell();
             shell.Main();
         }
