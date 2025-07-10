@@ -99,8 +99,9 @@ namespace ERP_Fix
             while (true)
             {
                 Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.Write("Please enter the command of your choice: ");
+                Console.WriteLine("Please enter the command of your choice: ");
                 Console.ResetColor();
+                Console.WriteLine("<END-OF-OUTPUT>");
                 string? choice = Console.ReadLine()?.ToLower();
 
                 if (choice == "create-storage-slot")
@@ -109,11 +110,13 @@ namespace ERP_Fix
                     StorageSlot newStorageSlot = program.NewStorageSlot();
                     storageSlots.Add(newStorageSlot.Id, newStorageSlot);
                     Console.WriteLine($"Your new Storage slot is accessible as S[{newStorageSlot.Id}]");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "list-storage-slots")
                 {
                     Console.WriteLine("You chose: List storage slots");
                     program.ListStorageSlots();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "create-article-type")
                 {
@@ -136,10 +139,12 @@ namespace ERP_Fix
                         continue;
                     }
                     Console.WriteLine($"Your new Article type is accessible as AT[{newArticleType.Id}] or AT[{newArticleType.Name}]");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "create-article")
                 {
                     CreateNewArticle(program, articleTypes, articles);
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "sort-article")
                 {
@@ -192,11 +197,13 @@ namespace ERP_Fix
                     }
                     program.SortArticle(articleToSort.Id, storageSlotToSortIn.Id);
                     Console.WriteLine($"Article {articleToSort.Id} sorted into storage slot {storageSlotToSortIn.Id}.");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "display-inventory")
                 {
                     Console.WriteLine("You chose: Display inventory (List articles)");
                     program.DisplayInventory();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "create-order")
                 {
@@ -254,11 +261,13 @@ namespace ERP_Fix
                     Order newOrder = program.NewOrder(articlesToOrder);
                     orders.Add(newOrder.Id, newOrder);
                     Console.WriteLine($"Your new order is accessible as O[{newOrder.Id}]");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "list-orders")
                 {
                     Console.WriteLine("You chose: List orders");
                     program.ListOrders();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "create-price-list")
                 {
@@ -285,11 +294,13 @@ namespace ERP_Fix
                     Prices newPrices = program.NewPrices(pricesHere);
                     prices.Add(newPrices.Id, newPrices);
                     Console.WriteLine($"Your new price list is accessible as P[{newPrices.Id}]");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "list-price-lists")
                 {
                     Console.WriteLine("You chose: List price lists");
                     program.ListPrices();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "create-bill")
                 {
@@ -356,11 +367,13 @@ namespace ERP_Fix
                     Bill newBill = program.NewBill(orderToBill, pricesToUse);
                     bills.Add(newBill.Id, newBill);
                     Console.WriteLine($"Bill created for order {orderId}.");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "list-bills")
                 {
                     Console.WriteLine("You chose: List bills");
                     program.ListBills();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
                 else if (choice == "exit")
                 {
@@ -368,13 +381,14 @@ namespace ERP_Fix
                     Console.ForegroundColor = ConsoleColor.Green;
                     Console.WriteLine("Goodbye");
                     Console.ResetColor();
+                    Console.WriteLine("<END-OF-OUTPUT>");
                     break;
                 }
                 else
                 {
                     Console.WriteLine("Invalid input. Please try again.");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                 }
-
             }
         }
 
@@ -384,6 +398,7 @@ namespace ERP_Fix
             if (articleTypes.Count == 0)
             {
                 Console.WriteLine("No article types available. Please create an article type first.");
+                Console.WriteLine("<END-OF-OUTPUT>");
                 return;
             }
             Console.Write("Enter the article type: ");
@@ -393,6 +408,7 @@ namespace ERP_Fix
             if (!match.Success)
             {
                 Console.WriteLine("Invalid article type. Please try again and use AT[id] or AT[name]");
+                Console.WriteLine("<END-OF-OUTPUT>");
                 return;
             }
 
@@ -404,6 +420,7 @@ namespace ERP_Fix
                 if (!articleTypes.ContainsId(id))
                 {
                     Console.WriteLine("Invalid article type. Please try again.");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                     return;
                 }
                 else
@@ -416,6 +433,7 @@ namespace ERP_Fix
                 if (!articleTypes.ContainsName(innerContent))
                 {
                     Console.WriteLine("Invalid article type. Please try again.");
+                    Console.WriteLine("<END-OF-OUTPUT>");
                     return;
                 }
                 else
@@ -429,6 +447,7 @@ namespace ERP_Fix
             if (!int.TryParse(amountInput, out int amount) || amount < 0)
             {
                 Console.WriteLine("Invalid amount. Please enter a positive integer.");
+                Console.WriteLine("<END-OF-OUTPUT>");
                 return;
             }
             Article newArticle = program.NewArticle(wantedArticleType.Id, amount);
