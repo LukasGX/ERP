@@ -201,36 +201,49 @@ namespace ERP_Fix
                 else if (choice == "create-order")
                 {
                     Console.WriteLine("You chose: Create a new order");
-                    if (articles.Count == 0)
+                    if (articleTypes.Count == 0)
                     {
-                        Console.WriteLine("No articles available. Please create an article first.");
+                        Console.WriteLine("No article types available. Please create an article type first.");
                         continue;
                     }
-                    Console.Write("Enter the articles to order (A[id], semicolon separated): ");
+                    Console.Write("Enter the articles to order (OI[AT[id], amount], semicolon separated): ");
                     string orderInput = Console.ReadLine();
                     string[] articleIds = orderInput.Split(';');
-                    List<Article> articlesToOrder = new List<Article>();
+                    List<OrderItem> articlesToOrder = new List<OrderItem>();
                     foreach (string articleId in articleIds)
                     {
-                        Match match = Regex.Match(articleId.Trim(), @"^A\[(.*)\]$");
+                        Match match = Regex.Match(articleId.Trim(), @"^OI\[AT\[(\d+)\],\s*(\d+)\]$");
                         if (!match.Success)
                         {
-                            Console.WriteLine($"Invalid article format: {articleId}. Please use A[id].");
-                            continue;
-                        }
-                        string innerContent = match.Groups[1].Value;
-                        if (int.TryParse(innerContent, out int id))
-                        {
-                            if (!articles.ContainsKey(id))
-                            {
-                                Console.WriteLine($"Article with id {id} does not exist.");
-                                continue;
-                            }
-                            articlesToOrder.Add(articles[id]);
+                            Console.WriteLine($"Invalid order format: {articleId}. Please use OI[AT[id], amount].");
                         }
                         else
                         {
-                            Console.WriteLine($"Invalid input. Please try again.");
+                            // Gruppen auslesen
+                            string typeIdStr = match.Groups[1].Value;
+                            string amountStr = match.Groups[2].Value;
+
+                            if (int.TryParse(typeIdStr, out int typeId) && int.TryParse(amountStr, out int amount))
+                            {
+                                // Prüfen, ob der ArticleType existiert
+                                //ArticleType? articleType = articleTypes.FirstOrDefault(at => at.Id == typeId);
+                                ArticleType? articleType = articleTypes.GetById(typeId)?.Value;
+                                if (articleType == null)
+                                {
+                                    Console.WriteLine($"ArticleType with id {typeId} does not exist.");
+                                }
+                                else
+                                {
+                                    // Artikel anlegen oder suchen, je nach Logik
+                                    OrderItem article = program.NewOrderItem(typeId, amount);
+                                    articlesToOrder.Add(article);
+                                    Console.WriteLine($"Added ArticleType {articleType.Name} (ID {typeId}) with amount {amount} to order.");
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("Invalid numbers in input. Please try again.");
+                            }
                         }
                     }
                     if (articlesToOrder.Count == 0)

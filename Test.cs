@@ -32,9 +32,9 @@ namespace ERP_Fix
 
             program.DisplayInventory();
 
-            List<Article> toOrder = new List<Article>
+            List<OrderItem> toOrder = new List<OrderItem>
             {
-                program.NewArticle(2, 6, false)
+                program.NewOrderItem(2, 6)
             };
             program.NewOrder(toOrder);
             program.ListOrders();
@@ -63,7 +63,7 @@ namespace ERP_Fix
         private void ExecuteOrders(Program program, Prices prices)
         {
             Order newestOrder = program.NewestOrder();
-            foreach (Article item in newestOrder.Articles)
+            foreach (OrderItem item in newestOrder.Articles)
             {
                 ProduceHammer(program, item.Stock);
                 program.WithdrawArticle(2, item.Stock);

@@ -37,6 +37,9 @@ namespace ERP_Fix
         private List<Bill> bills = new List<Bill>();
         private int lastBillId = -1;
 
+        private static int lastOrderItemId = 868434; // looks better
+        private static object idLock = new object();
+
         public void Main()
         {
             // Tests
@@ -46,10 +49,9 @@ namespace ERP_Fix
             Article boots = NewArticle(0, 100);
             Article hats = NewArticle(1, 40);
 
-            Order order = NewOrder(new List<Article>()
+            Order order = NewOrder(new List<OrderItem>()
             {
-                boots,
-                hats
+                NewOrderItem(0, 5)
             });
             ListOrders();
 
@@ -64,6 +66,14 @@ namespace ERP_Fix
             ListBills();
         }
 
+        int GenerateSequentialId()
+        {
+            lock (idLock)
+            {
+                return ++lastOrderItemId;
+            }
+        }
+
         // Warehousing
         private Article? FindArticle(int id)
         {
@@ -75,7 +85,7 @@ namespace ERP_Fix
             return articleTypes.FirstOrDefault(t => t.Id == id);
         }
 
-        private StorageSlot? FindStorageSlot(Article article)
+        private StorageSlot? FindStorageSlot(ArticleSimilar article)
         {
             return storageSlots.FirstOrDefault(slot => slot.Fill.Contains(article));
         }
@@ -119,6 +129,20 @@ namespace ERP_Fix
                 articles.Add(generated);
             }
             lastStockId += 1;
+
+            return generated;
+        }
+
+        public OrderItem NewOrderItem(int typeId, int stock, bool toList = true)
+        {
+            ArticleType articleType = FindArticleType(typeId);
+            if (articleType == null) // Ensure proper null checks
+            {
+                throw new ArgumentException($"Article type with ID {typeId} does not exist.");
+            }
+
+            int uniqueNumber = GenerateSequentialId();
+            OrderItem generated = new OrderItem(uniqueNumber, articleType, stock);
 
             return generated;
         }
@@ -195,7 +219,7 @@ namespace ERP_Fix
         }
 
         // Orders
-        public Order NewOrder(List<Article> orderArticles)
+        public Order NewOrder(List<OrderItem> orderArticles)
         {
             Order generated = new Order(lastOrderId + 1, orderArticles);
 
@@ -211,7 +235,7 @@ namespace ERP_Fix
             foreach (Order order in orders)
             {
                 Console.WriteLine($"ID: {order.Id}");
-                foreach (Article item in order.Articles)
+                foreach (OrderItem item in order.Articles)
                 {
                     StorageSlot slot = FindStorageSlot(item);
                     string slot_id;
@@ -238,7 +262,7 @@ namespace ERP_Fix
         {
             double totalPrice = 0;
 
-            foreach (Article item in order.Articles)
+            foreach (OrderItem item in order.Articles)
             {
                 if (!prices.PriceList.ContainsKey(item.Type))
                 {
@@ -248,6 +272,8 @@ namespace ERP_Fix
                 double price = prices.PriceList[item.Type];
                 totalPrice += price * item.Stock;
             }
+
+            totalPrice = Math.Round(totalPrice, 2);
 
             Bill generated = new Bill(lastBillId + 1, totalPrice, order);
 
@@ -264,7 +290,7 @@ namespace ERP_Fix
             {
                 Console.WriteLine($"ID: {bill.Id}, Total Price: {bill.TotalPrice}");
 
-                foreach (Article item in bill.Order.Articles)
+                foreach (OrderItem item in bill.Order.Articles)
                 {
                     StorageSlot slot = FindStorageSlot(item);
                     string slot_id;
@@ -302,7 +328,12 @@ namespace ERP_Fix
         }
     }
 
-    public class Article
+    public class ArticleSimilar
+    {
+
+    }
+
+    public class Article : ArticleSimilar
     {
         public int Id { get; }
         public ArticleType Type { get; }
@@ -343,12 +374,26 @@ namespace ERP_Fix
     public class Order
     {
         public int Id { get; }
-        public List<Article> Articles { get; set; }
+        public List<OrderItem> Articles { get; set; }
 
-        public Order(int id, List<Article> articles)
+        public Order(int id, List<OrderItem> articles)
         {
             Id = id;
             Articles = articles;
+        }
+    }
+
+    public class OrderItem : ArticleSimilar
+    {
+        public int Id { get; }
+        public ArticleType Type { get; }
+        public int Stock { get; set; }
+
+        public OrderItem(int id, ArticleType type, int stock)
+        {
+            Id = id;
+            Type = type;
+            Stock = stock;
         }
     }
 
