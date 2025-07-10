@@ -70,17 +70,17 @@ namespace ERP_Fix
             return articles.FirstOrDefault(a => a.Id == id);
         }
 
-        private ArticleType FindArticleType(int id)
+        private ArticleType? FindArticleType(int id)
         {
             return articleTypes.FirstOrDefault(t => t.Id == id);
         }
 
-        private StorageSlot FindStorageSlot(Article article)
+        private StorageSlot? FindStorageSlot(Article article)
         {
             return storageSlots.FirstOrDefault(slot => slot.Fill.Contains(article));
         }
 
-        private StorageSlot FindStorageSlotById(int id)
+        private StorageSlot? FindStorageSlotById(int id)
         {
             return storageSlots.FirstOrDefault(t => t.Id == id);
         }
@@ -223,7 +223,7 @@ namespace ERP_Fix
             Console.WriteLine("=========================");
         }
 
-        public Order NewestOrder()
+        public Order? NewestOrder()
         {
             return orders.OrderBy(o => o.Id).FirstOrDefault();
         }
@@ -234,7 +234,7 @@ namespace ERP_Fix
         }
 
         // Bills
-        public Bill NewBill(Order order, Prices prices)
+        public Bill? NewBill(Order order, Prices prices)
         {
             double totalPrice = 0;
 
