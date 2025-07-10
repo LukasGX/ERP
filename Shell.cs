@@ -85,6 +85,7 @@ namespace ERP_Fix
             Console.WriteLine("Exit the ERP");
 
             Console.WriteLine("");
+            Console.WriteLine("<END-OF-OUTPUT>");
 
             // Dictionaries
             Dictionary<int, StorageSlot> storageSlots = new Dictionary<int, StorageSlot>();
