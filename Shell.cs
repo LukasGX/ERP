@@ -98,13 +98,23 @@ namespace ERP_Fix
 
             while (true)
             {
-                Console.ForegroundColor = ConsoleColor.Cyan;
-                Console.WriteLine("Please enter the command of your choice: ");
-                Console.ResetColor();
-                Console.WriteLine("<END-OF-OUTPUT>");
-                string? choice = Console.ReadLine()?.ToLower();
+                string? inputLine = Console.ReadLine();
+                if (inputLine == null) break;
+                string[] inputParts = inputLine.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
+                string command = inputParts[0].ToLower();
+                Dictionary<string, string> parameters = new Dictionary<string, string>();
+                if (inputParts.Length > 1)
+                {
+                    var paramPairs = inputParts[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var pair in paramPairs)
+                    {
+                        var kv = pair.Split('=', 2);
+                        if (kv.Length == 2)
+                            parameters[kv[0].ToLower()] = kv[1];
+                    }
+                }
 
-                if (choice == "create-storage-slot")
+                if (command == "create-storage-slot")
                 {
                     Console.WriteLine("You chose: Create a new storage slot");
                     StorageSlot newStorageSlot = program.NewStorageSlot();
@@ -112,49 +122,60 @@ namespace ERP_Fix
                     Console.WriteLine($"Your new Storage slot is accessible as S[{newStorageSlot.Id}]");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "list-storage-slots")
+                else if (command == "list-storage-slots")
                 {
                     Console.WriteLine("You chose: List storage slots");
                     program.ListStorageSlots();
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "create-article-type")
+                else if (command == "create-article-type")
                 {
                     Console.WriteLine("You chose: Create a new article type");
-                    Console.Write("Enter the name of the new article type: ");
-                    string? typeName = Console.ReadLine();
-                    if (string.IsNullOrWhiteSpace(typeName)) // Ensure proper null checks
+                    string typeName;
+                    if (!parameters.TryGetValue("name", out typeName) || string.IsNullOrWhiteSpace(typeName))
+                    {
+                        Console.Write("Enter the name of the new article type: ");
+                        typeName = Console.ReadLine();
+                    }
+                    if (string.IsNullOrWhiteSpace(typeName))
                     {
                         Console.WriteLine("Invalid input. Please enter a valid article type name.");
-                        continue; // Fix return to continue for loop
+                        Console.WriteLine("<END-OF-OUTPUT>");
+                        continue;
                     }
                     ArticleType newArticleType = program.NewArticleType(typeName);
                     try
                     {
-                        articleTypes.Add(newArticleType.Id, newArticleType.Name, newArticleType); // Validate dictionary operations
+                        articleTypes.Add(newArticleType.Id, newArticleType.Name, newArticleType);
                     }
                     catch (ArgumentException ex)
                     {
                         Console.WriteLine($"Error: {ex.Message}");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
                     Console.WriteLine($"Your new Article type is accessible as AT[{newArticleType.Id}] or AT[{newArticleType.Name}]");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "create-article")
+                else if (command == "create-article")
                 {
-                    CreateNewArticle(program, articleTypes, articles);
+                    CreateNewArticle(program, articleTypes, articles, parameters);
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "sort-article")
+                else if (command == "sort-article")
                 {
                     Console.WriteLine("You chose: Sort an article");
-                    Console.Write("Enter the article to sort (A[id]): ");
-                    string articleInput = Console.ReadLine();
+                    string articleInput;
+                    if (!parameters.TryGetValue("article", out articleInput) || string.IsNullOrWhiteSpace(articleInput))
+                    {
+                        Console.Write("Enter the article to sort (A[id]): ");
+                        articleInput = Console.ReadLine();
+                    }
                     Match match = Regex.Match(articleInput, @"^A\[(.*)\]$");
                     if (!match.Success)
                     {
                         Console.WriteLine("Invalid article format. Please use A[id].");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
                     string innerContent = match.Groups[1].Value;
@@ -164,6 +185,7 @@ namespace ERP_Fix
                         if (!articles.ContainsKey(id))
                         {
                             Console.WriteLine("Invalid article id. Please try again.");
+                            Console.WriteLine("<END-OF-OUTPUT>");
                             continue;
                         }
                         articleToSort = articles[id];
@@ -171,50 +193,65 @@ namespace ERP_Fix
                     else
                     {
                         Console.WriteLine("Invalid input. Please try again.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
+                        continue;
                     }
-                    Console.Write("Enter the storage slot to sort into (S[id]): ");
-                    string slotInput = Console.ReadLine();
+                    string slotInput;
+                    if (!parameters.TryGetValue("slot", out slotInput) || string.IsNullOrWhiteSpace(slotInput))
+                    {
+                        Console.Write("Enter the storage slot to sort into (S[id]): ");
+                        slotInput = Console.ReadLine();
+                    }
                     Match matchX = Regex.Match(slotInput, @"^S\[(.*)\]$");
                     if (!matchX.Success)
                     {
                         Console.WriteLine("Invalid storage slot format. Please use S[id].");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    string innerContentX = matchX.Groups[1].Value; // Fix incorrect variable usage
+                    string innerContentX = matchX.Groups[1].Value;
                     StorageSlot storageSlotToSortIn = null;
                     if (int.TryParse(innerContentX, out int idX))
                     {
                         if (!storageSlots.ContainsKey(idX))
                         {
                             Console.WriteLine("Invalid storage slot id. Please try again.");
+                            Console.WriteLine("<END-OF-OUTPUT>");
                             continue;
                         }
-                        storageSlotToSortIn = storageSlots[idX]; // Fix incorrect dictionary key usage
+                        storageSlotToSortIn = storageSlots[idX];
                     }
                     else
                     {
                         Console.WriteLine("Invalid input. Please try again.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
+                        continue;
                     }
                     program.SortArticle(articleToSort.Id, storageSlotToSortIn.Id);
                     Console.WriteLine($"Article {articleToSort.Id} sorted into storage slot {storageSlotToSortIn.Id}.");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "display-inventory")
+                else if (command == "display-inventory")
                 {
                     Console.WriteLine("You chose: Display inventory (List articles)");
                     program.DisplayInventory();
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "create-order")
+                else if (command == "create-order")
                 {
                     Console.WriteLine("You chose: Create a new order");
                     if (articleTypes.Count == 0)
                     {
                         Console.WriteLine("No article types available. Please create an article type first.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    Console.Write("Enter the articles to order (OI[AT[id], amount], semicolon separated): ");
-                    string orderInput = Console.ReadLine();
+                    string orderInput;
+                    if (!parameters.TryGetValue("order", out orderInput) || string.IsNullOrWhiteSpace(orderInput))
+                    {
+                        Console.Write("Enter the articles to order (OI[AT[id], amount], semicolon separated): ");
+                        orderInput = Console.ReadLine();
+                    }
                     string[] articleIds = orderInput.Split(';');
                     List<OrderItem> articlesToOrder = new List<OrderItem>();
                     foreach (string articleId in articleIds)
@@ -226,14 +263,10 @@ namespace ERP_Fix
                         }
                         else
                         {
-                            // Gruppen auslesen
                             string typeIdStr = match.Groups[1].Value;
                             string amountStr = match.Groups[2].Value;
-
                             if (int.TryParse(typeIdStr, out int typeId) && int.TryParse(amountStr, out int amount))
                             {
-                                // Prüfen, ob der ArticleType existiert
-                                //ArticleType? articleType = articleTypes.FirstOrDefault(at => at.Id == typeId);
                                 ArticleType? articleType = articleTypes.GetById(typeId)?.Value;
                                 if (articleType == null)
                                 {
@@ -241,7 +274,6 @@ namespace ERP_Fix
                                 }
                                 else
                                 {
-                                    // Artikel anlegen oder suchen, je nach Logik
                                     OrderItem article = program.NewOrderItem(typeId, amount);
                                     articlesToOrder.Add(article);
                                     Console.WriteLine($"Added ArticleType {articleType.Name} (ID {typeId}) with amount {amount} to order.");
@@ -256,6 +288,7 @@ namespace ERP_Fix
                     if (articlesToOrder.Count == 0)
                     {
                         Console.WriteLine("No valid articles to order. Please try again.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
                     Order newOrder = program.NewOrder(articlesToOrder);
@@ -263,25 +296,30 @@ namespace ERP_Fix
                     Console.WriteLine($"Your new order is accessible as O[{newOrder.Id}]");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "list-orders")
+                else if (command == "list-orders")
                 {
                     Console.WriteLine("You chose: List orders");
                     program.ListOrders();
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "create-price-list")
+                else if (command == "create-price-list")
                 {
                     Console.WriteLine("You chose: Create new price list");
                     if (articleTypes.Count == 0)
                     {
                         Console.WriteLine("No article types available. Please create an article type first.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
                     Dictionary<ArticleType, double> pricesHere = new Dictionary<ArticleType, double>();
                     foreach (var articleType in articleTypes.GetAll())
                     {
-                        Console.Write($"Enter the price for {articleType.Name} (AT[{articleType.Id}]): ");
-                        string priceInput = Console.ReadLine();
+                        string priceInput;
+                        if (!parameters.TryGetValue($"price_{articleType.Id}", out priceInput) || string.IsNullOrWhiteSpace(priceInput))
+                        {
+                            Console.Write($"Enter the price for {articleType.Name} (AT[{articleType.Id}]): ");
+                            priceInput = Console.ReadLine();
+                        }
                         if (double.TryParse(priceInput, out double price) && price >= 0)
                         {
                             pricesHere.Add(articleType.Value, price);
@@ -296,29 +334,34 @@ namespace ERP_Fix
                     Console.WriteLine($"Your new price list is accessible as P[{newPrices.Id}]");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "list-price-lists")
+                else if (command == "list-price-lists")
                 {
                     Console.WriteLine("You chose: List price lists");
                     program.ListPrices();
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "create-bill")
+                else if (command == "create-bill")
                 {
                     Console.WriteLine("You chose: Create a new bill from order");
                     if (orders.Count == 0)
                     {
                         Console.WriteLine("No orders available. Please create an order first.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    Console.Write("Enter the order id to create a bill from (O[id]): ");
-                    string orderInput = Console.ReadLine();
+                    string orderInput;
+                    if (!parameters.TryGetValue("order", out orderInput) || string.IsNullOrWhiteSpace(orderInput))
+                    {
+                        Console.Write("Enter the order id to create a bill from (O[id]): ");
+                        orderInput = Console.ReadLine();
+                    }
                     Match match = Regex.Match(orderInput, @"^O\[(.*)\]$");
                     if (!match.Success)
                     {
                         Console.WriteLine("Invalid order format. Please use O[id].");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-
                     Order orderToBill = null;
                     string innerContent = match.Groups[1].Value;
                     if (int.TryParse(innerContent, out int orderId))
@@ -326,6 +369,7 @@ namespace ERP_Fix
                         if (!orders.ContainsKey(orderId))
                         {
                             Console.WriteLine("Invalid order id. Please try again.");
+                            Console.WriteLine("<END-OF-OUTPUT>");
                             continue;
                         }
                         orderToBill = orders[orderId];
@@ -333,19 +377,26 @@ namespace ERP_Fix
                     else
                     {
                         Console.WriteLine("Invalid input. Please try again.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
+                        continue;
                     }
-
                     if (prices.Count == 0)
                     {
                         Console.WriteLine("No price lists available. Please create a price list first.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    Console.Write("Enter the price list to use (P[id]): ");
-                    string priceInput = Console.ReadLine();
+                    string priceInput;
+                    if (!parameters.TryGetValue("price", out priceInput) || string.IsNullOrWhiteSpace(priceInput))
+                    {
+                        Console.Write("Enter the price list to use (P[id]): ");
+                        priceInput = Console.ReadLine();
+                    }
                     Match priceMatch = Regex.Match(priceInput, @"^P\[(.*)\]$");
                     if (!priceMatch.Success)
                     {
                         Console.WriteLine("Invalid price list format. Please use P[id].");
+                        Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
                     Prices pricesToUse = null;
@@ -355,6 +406,7 @@ namespace ERP_Fix
                         if (!prices.ContainsKey(priceId))
                         {
                             Console.WriteLine("Invalid price list id. Please try again.");
+                            Console.WriteLine("<END-OF-OUTPUT>");
                             continue;
                         }
                         pricesToUse = prices[priceId];
@@ -362,20 +414,21 @@ namespace ERP_Fix
                     else
                     {
                         Console.WriteLine("Invalid input. Please try again.");
+                        Console.WriteLine("<END-OF-OUTPUT>");
+                        continue;
                     }
-
                     Bill newBill = program.NewBill(orderToBill, pricesToUse);
                     bills.Add(newBill.Id, newBill);
                     Console.WriteLine($"Bill created for order {orderId}.");
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "list-bills")
+                else if (command == "list-bills")
                 {
                     Console.WriteLine("You chose: List bills");
                     program.ListBills();
                     Console.WriteLine("<END-OF-OUTPUT>");
                 }
-                else if (choice == "exit")
+                else if (command == "exit")
                 {
                     Console.WriteLine("Exiting the ERP...");
                     Console.ForegroundColor = ConsoleColor.Green;
@@ -392,7 +445,11 @@ namespace ERP_Fix
             }
         }
 
-        private void CreateNewArticle(Program program, NameCollection<int, string, ArticleType> articleTypes, Dictionary<int, Article> articles)
+        private void CreateNewArticle(
+    Program program,
+    NameCollection<int, string, ArticleType> articleTypes,
+    Dictionary<int, Article> articles,
+    Dictionary<string, string> parameters = null)
         {
             Console.WriteLine("You chose: Create a new article");
             if (articleTypes.Count == 0)
@@ -401,9 +458,18 @@ namespace ERP_Fix
                 Console.WriteLine("<END-OF-OUTPUT>");
                 return;
             }
-            Console.Write("Enter the article type: ");
-            // Article type
-            string typeInput = Console.ReadLine();
+
+            string typeInput;
+            if (parameters != null && parameters.TryGetValue("type", out typeInput) && !string.IsNullOrWhiteSpace(typeInput))
+            {
+                // nothing to do, typeInput is set
+            }
+            else
+            {
+                Console.Write("Enter the article type: ");
+                typeInput = Console.ReadLine();
+            }
+
             Match match = Regex.Match(typeInput, @"^AT\[(.*)\]$");
             if (!match.Success)
             {
@@ -413,7 +479,6 @@ namespace ERP_Fix
             }
 
             ArticleType wantedArticleType = null;
-
             string innerContent = match.Groups[1].Value;
             if (int.TryParse(innerContent, out int id))
             {
@@ -442,8 +507,17 @@ namespace ERP_Fix
                 }
             }
 
-            Console.Write("Enter the amount of the new article: ");
-            string amountInput = Console.ReadLine();
+            string amountInput;
+            if (parameters != null && parameters.TryGetValue("amount", out amountInput) && !string.IsNullOrWhiteSpace(amountInput))
+            {
+                // nothing to do, amountInput is set
+            }
+            else
+            {
+                Console.Write("Enter the amount of the new article: ");
+                amountInput = Console.ReadLine();
+            }
+
             if (!int.TryParse(amountInput, out int amount) || amount < 0)
             {
                 Console.WriteLine("Invalid amount. Please enter a positive integer.");
@@ -453,6 +527,7 @@ namespace ERP_Fix
             Article newArticle = program.NewArticle(wantedArticleType.Id, amount);
             articles.Add(newArticle.Id, newArticle);
             Console.WriteLine($"Your new Article is accessible as A[{newArticle.Id}]");
+            Console.WriteLine("<END-OF-OUTPUT>");
         }
     }
 }
