@@ -292,7 +292,7 @@ namespace ERP_Fix
                         Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    Order newOrder = program.NewOrder(articlesToOrder);
+                    Order newOrder = program.NewOrder(articlesToOrder, null);
                     orders.Add(newOrder.Id, newOrder);
                     Console.WriteLine($"Your new order is accessible as O[{newOrder.Id}]");
                     Console.WriteLine("<END-OF-OUTPUT>");

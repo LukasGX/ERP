@@ -36,7 +36,7 @@ namespace ERP_Fix
             {
                 program.NewOrderItem(2, 6)
             };
-            program.NewOrder(toOrder);
+            program.NewOrder(toOrder, null);
             program.ListOrders();
 
             Prices prices = program.NewPrices(new Dictionary<ArticleType, double>()

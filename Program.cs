@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Xml.Serialization;
 
 namespace ERP_Fix
 {
@@ -9,10 +11,11 @@ namespace ERP_Fix
     {
         static void Main(string[] args)
         {
-            Console.SetOut(new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true });
+            //Shell shell = new Shell();
+            //shell.Main();
 
-            Shell shell = new Shell();
-            shell.Main();
+            Program program = new Program();
+            program.Main();
         }
     }
 
@@ -39,8 +42,21 @@ namespace ERP_Fix
         private List<Bill> bills = new List<Bill>();
         private int lastBillId = -1;
 
+        // Orders
         private static int lastOrderItemId = 868434; // looks better
         private static object idLock = new object();
+
+        // Sections
+        private List<Section> sections = new List<Section>();
+        private int lastSectionId = -1;
+
+        // Employees
+        private List<Employee> employees = new List<Employee>();
+        private int lastEmployeeId = -1;
+
+        // Customers
+        private List<Customer> customers = new List<Customer>();
+        private int lastCustomerId = -1;
 
         public void Main()
         {
@@ -51,10 +67,22 @@ namespace ERP_Fix
             Article boots = NewArticle(0, 100);
             Article hats = NewArticle(1, 40);
 
+            Customer customerJaneDoe = NewCustomer("Jane Doe");
+
             Order order = NewOrder(new List<OrderItem>()
             {
                 NewOrderItem(0, 5)
-            });
+            }, customerJaneDoe);
+            ListOrders();
+            FinishOrder(order);
+
+            Order orderX = NewOrder(new List<OrderItem>()
+            {
+                NewOrderItem(1, 2)
+            }, customerJaneDoe);
+            ListOrders();
+
+            CancelOrder(orderX);
             ListOrders();
 
             Prices prices = NewPrices(new Dictionary<ArticleType, double>()
@@ -66,6 +94,15 @@ namespace ERP_Fix
 
             Bill bill = NewBill(order, prices);
             ListBills();
+
+            Section sectionClothing = NewSection("Clothing");
+            Section sectionFootwear = NewSection("Footwear");
+            ListSections();
+
+            Employee employeeJohnDoe = NewEmployee("John Doe", sectionFootwear);
+            ListEmployees();
+
+            ListCustomers();
         }
 
         int GenerateSequentialId()
@@ -198,7 +235,9 @@ namespace ERP_Fix
 
         public void DisplayInventory()
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("======= Inventory =======");
+            Console.ResetColor();
             foreach (Article item in articles)
             {
                 StorageSlot slot = FindStorageSlot(item);
@@ -212,7 +251,9 @@ namespace ERP_Fix
 
         public void ListStorageSlots()
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("===== Storage Slots =====");
+            Console.ResetColor();
             foreach (StorageSlot slot in storageSlots)
             {
                 Console.WriteLine($"ID: {slot.Id}");
@@ -221,9 +262,9 @@ namespace ERP_Fix
         }
 
         // Orders
-        public Order NewOrder(List<OrderItem> orderArticles)
+        public Order NewOrder(List<OrderItem> orderArticles, Customer customer)
         {
-            Order generated = new Order(lastOrderId + 1, orderArticles);
+            Order generated = new Order(lastOrderId + 1, orderArticles, customer);
 
             orders.Add(generated);
             lastOrderId += 1;
@@ -231,19 +272,38 @@ namespace ERP_Fix
             return generated;
         }
 
-        public void ListOrders()
+        public void ListOrders(bool showFullNotPending = false)
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("========= Orders ========");
+            Console.ResetColor();
             foreach (Order order in orders)
             {
-                Console.WriteLine($"ID: {order.Id}");
-                foreach (OrderItem item in order.Articles)
+                Console.Write($"ID: {order.Id}, From: {order.Customer.Name}, Status: ");
+                if (order.Status == OrderStatus.Pending)
                 {
-                    StorageSlot slot = FindStorageSlot(item);
-                    string slot_id;
-                    if (slot == null) slot_id = "unsorted";
-                    else slot_id = slot.Id.ToString();
-                    Console.WriteLine($"ArticleType-ID: {item.Type.Id}, Article-ID: {item.Id}, Name: {item.Type.Name}, Stock: {item.Stock}, In Slot {slot_id}");
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                }
+                else if (order.Status == OrderStatus.Completed)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                }
+                else if (order.Status == OrderStatus.Cancelled)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+                Console.WriteLine(order.Status);
+                Console.ResetColor();
+                if (order.Status == OrderStatus.Pending || showFullNotPending)
+                {
+                    foreach (OrderItem item in order.Articles)
+                    {
+                        StorageSlot slot = FindStorageSlot(item);
+                        string slot_id;
+                        if (slot == null) slot_id = "unsorted";
+                        else slot_id = slot.Id.ToString();
+                        Console.WriteLine($"ArticleType-ID: {item.Type.Id}, Article-ID: {item.Id}, Name: {item.Type.Name}, Stock: {item.Stock}, In Slot {slot_id}");
+                    }
                 }
             }
             Console.WriteLine("=========================");
@@ -256,7 +316,13 @@ namespace ERP_Fix
 
         public void FinishOrder(Order order)
         {
-            orders.Remove(order);
+            order.Status = OrderStatus.Completed;
+        }
+
+        public void CancelOrder(Order order)
+        {
+            order.Status = OrderStatus.Cancelled;
+            Console.WriteLine($"Order with ID {order.Id} has been cancelled.");
         }
 
         // Bills
@@ -287,10 +353,12 @@ namespace ERP_Fix
 
         public void ListBills()
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("========= Bills =========");
+            Console.ResetColor();
             foreach (Bill bill in bills)
             {
-                Console.WriteLine($"ID: {bill.Id}, Total Price: {bill.TotalPrice}");
+                Console.WriteLine($"ID: {bill.Id}, Total Price: {bill.TotalPrice}, From: {bill.Customer.Name}");
 
                 foreach (OrderItem item in bill.Order.Articles)
                 {
@@ -317,7 +385,9 @@ namespace ERP_Fix
 
         public void ListPrices()
         {
+            Console.ForegroundColor = ConsoleColor.Yellow;
             Console.WriteLine("========= Prices ========");
+            Console.ResetColor();
             foreach (Prices price in prices)
             {
                 Console.WriteLine($"ID: {price.Id}");
@@ -325,6 +395,75 @@ namespace ERP_Fix
                 {
                     Console.WriteLine($"ArticleType-ID: {entry.Key.Id}, Name: {entry.Key.Name}, Price: {entry.Value}");
                 }
+            }
+            Console.WriteLine("=========================");
+        }
+
+        // Sections
+        public Section NewSection(string name)
+        {
+            Section generated = new Section(lastSectionId + 1, name);
+
+            sections.Add(generated);
+            lastSectionId += 1;
+
+            return generated;
+        }
+
+        public void ListSections()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("======= Sections =======");
+            Console.ResetColor();
+            foreach (Section section in sections)
+            {
+                Console.WriteLine($"ID: {section.Id}, Name: {section.Name}");
+            }
+            Console.WriteLine("=========================");
+        }
+
+        // Employees
+        public Employee NewEmployee(string name, Section worksIn)
+        {
+            Employee generated = new Employee(lastEmployeeId + 1, name, worksIn);
+
+            employees.Add(generated);
+            lastEmployeeId += 1;
+
+            return generated;
+        }
+        public void ListEmployees()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("======= Employees =======");
+            Console.ResetColor();
+            foreach (Employee employee in employees)
+            {
+                Console.WriteLine($"ID: {employee.Id}, Name: {employee.Name}, Works in: {employee.worksIn.Name}");
+                
+            }
+            Console.WriteLine("=========================");
+        }
+
+        // Customers
+        public Customer NewCustomer(string name)
+        {
+            Customer generated = new Customer(lastCustomerId + 1, name);
+
+            customers.Add(generated);
+            lastCustomerId += 1;
+
+            return generated;
+        }
+
+        public void ListCustomers()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("======= Customers =======");
+            Console.ResetColor();
+            foreach (Customer customer in customers)
+            {
+                Console.WriteLine($"ID: {customer.Id}, Name: {customer.Name}");
             }
             Console.WriteLine("=========================");
         }
@@ -373,15 +512,25 @@ namespace ERP_Fix
         }
     }
 
+    public enum OrderStatus
+    {
+        Pending,
+        Completed,
+        Cancelled
+    }
+
     public class Order
     {
         public int Id { get; }
         public List<OrderItem> Articles { get; set; }
+        public Customer Customer { get; set; }
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
-        public Order(int id, List<OrderItem> articles)
+        public Order(int id, List<OrderItem> articles, Customer customer)
         {
             Id = id;
             Articles = articles;
+            Customer = customer;
         }
     }
 
@@ -416,12 +565,62 @@ namespace ERP_Fix
         public int Id { get; }
         public double TotalPrice { get; }
         public Order Order { get; }
+        public Customer Customer { get; set; }
 
         public Bill(int id, double totalPrice, Order order)
         {
             Id = id;
             TotalPrice = totalPrice;
             Order = order;
+            Customer = order.Customer;
+        }
+    }
+
+    public class Section
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+
+        public Section(int id, string name)
+        {
+            Id = id;
+            Name = name;
+        }
+    }
+
+    public enum PersonType
+    {
+        Employee = 0,
+        Customer = 1
+    }
+
+    public abstract class Person
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public PersonType Type { get; set; }
+    }
+
+    public class Employee : Person
+    {
+        public Section worksIn { get; set; }
+
+        public Employee(int id, string name, Section worksIn)
+        {
+            Id = id;
+            Name = name;
+            Type = PersonType.Employee;
+            this.worksIn = worksIn;
+        }
+    }
+
+    public class Customer : Person
+    {
+        public Customer(int id, string name)
+        {
+            Id = id;
+            Name = name;
+            Type = PersonType.Customer;
         }
     }
 }
