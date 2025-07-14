@@ -8,7 +8,7 @@ namespace ERP_Fix
 {
     class Test
     {
-        public void Main()
+        public void Start()
         {
             Program program = new Program();
 

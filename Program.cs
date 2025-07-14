@@ -12,10 +12,10 @@ namespace ERP_Fix
         static void Main(string[] args)
         {
             //Shell shell = new Shell();
-            //shell.Main();
+            //shell.Start();
 
             Program program = new Program();
-            program.Main();
+            program.Start();
         }
     }
 
@@ -58,7 +58,7 @@ namespace ERP_Fix
         private List<Customer> customers = new List<Customer>();
         private int lastCustomerId = -1;
 
-        public void Main()
+        public void Start()
         {
             // Tests
             ArticleType boot = NewArticleType("Boot");

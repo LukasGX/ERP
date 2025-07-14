@@ -10,7 +10,7 @@ namespace ERP_Fix
 {
     class Shell
     {
-        public void Main()
+        public void Start()
         {
             Console.WriteLine("Welcome to my ERP System!");
             Console.WriteLine("Possible commands:");
