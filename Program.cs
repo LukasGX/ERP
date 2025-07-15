@@ -63,6 +63,8 @@ namespace ERP_Fix
         private List<Customer> customers = new List<Customer>();
         private int lastCustomerId = -1;
 
+        public const ConsoleColor SECTION_INDICATOR_COLOR = ConsoleColor.Cyan;
+
         public void Start()
         {
             // Tests
@@ -206,7 +208,7 @@ namespace ERP_Fix
             }
             else
             {
-                Console.WriteLine($"Article with ID {id} not found.");
+                Console.WriteLine($"[ERROR] Article with ID {id} not found.");
             }
         }
 
@@ -221,12 +223,12 @@ namespace ERP_Fix
                 }
                 else
                 {
-                    Console.WriteLine($"Not enough stock to withdraw! Current: {article.Stock}, Requested: {amount}");
+                    Console.WriteLine($"[ERROR] Not enough stock to withdraw! Current: {article.Stock}, Requested: {amount}");
                 }
             }
             else
             {
-                Console.WriteLine($"Article with ID {id} not found.");
+                Console.WriteLine($"[ERROR] Article with ID {id} not found.");
             }
         }
 
@@ -241,13 +243,13 @@ namespace ERP_Fix
             }
             else
             {
-                Console.WriteLine($"Article with ID {id} not found.");
+                Console.WriteLine($"[ERROR] Article with ID {id} not found.");
             }
         }
 
         public void DisplayInventory()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("======= Inventory =======");
             Console.ResetColor();
             foreach (Article item in articles)
@@ -263,7 +265,7 @@ namespace ERP_Fix
 
         public void ListStorageSlots()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("===== Storage Slots =====");
             Console.ResetColor();
             foreach (StorageSlot slot in storageSlots)
@@ -286,7 +288,7 @@ namespace ERP_Fix
 
         public void ListOrders(bool showFullNotPending = false)
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("========= Orders ========");
             Console.ResetColor();
             foreach (Order order in orders)
@@ -334,7 +336,7 @@ namespace ERP_Fix
         public void CancelOrder(Order order)
         {
             order.Status = OrderStatus.Cancelled;
-            Console.WriteLine($"Order with ID {order.Id} has been cancelled.");
+            Console.WriteLine($"[INFO] Order with ID {order.Id} has been cancelled.");
         }
 
         // Bills
@@ -346,7 +348,7 @@ namespace ERP_Fix
             {
                 if (!prices.PriceList.ContainsKey(item.Type))
                 {
-                    Console.WriteLine($"No price found for ArticleType {item.Type.Name}");
+                    Console.WriteLine($"[ERROR] No price found for ArticleType {item.Type.Name}");
                     return null;
                 }
                 double price = prices.PriceList[item.Type];
@@ -365,7 +367,7 @@ namespace ERP_Fix
 
         public void ListBills()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("========= Bills =========");
             Console.ResetColor();
             foreach (Bill bill in bills)
@@ -397,7 +399,7 @@ namespace ERP_Fix
 
         public void ListPrices()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("========= Prices ========");
             Console.ResetColor();
             foreach (Prices price in prices)
@@ -421,9 +423,7 @@ namespace ERP_Fix
                 cDaysUntilDue = Math.Abs((DateTime.Now.Date - (DateTime)daysUntilDue).Days);
             else
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"Error: daysUntilDue must be an int or DateTime => {daysUntilDue.GetType()} is not allowed");
-                Console.ResetColor();
+                Console.WriteLine($"[ERROR] daysUntilDue must be an int or DateTime => {daysUntilDue.GetType()} is not allowed");
                 return null;
             }
 
@@ -437,7 +437,7 @@ namespace ERP_Fix
 
         public void ListPaymentTerms()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("===== Payment Terms =====");
             Console.ResetColor();
             foreach (PaymentTerms terms in paymentTerms)
@@ -460,7 +460,7 @@ namespace ERP_Fix
 
         public void ListSections()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("======= Sections =======");
             Console.ResetColor();
             foreach (Section section in sections)
@@ -482,7 +482,7 @@ namespace ERP_Fix
         }
         public void ListEmployees()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("======= Employees =======");
             Console.ResetColor();
             foreach (Employee employee in employees)
@@ -506,7 +506,7 @@ namespace ERP_Fix
 
         public void ListCustomers()
         {
-            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
             Console.WriteLine("======= Customers =======");
             Console.ResetColor();
             foreach (Customer customer in customers)
