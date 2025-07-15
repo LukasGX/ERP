@@ -92,7 +92,7 @@ namespace ERP_Fix
             });
             ListPrices();
 
-            Bill bill = NewBill(order, prices);
+            Bill? bill = NewBill(order, prices);
             ListBills();
 
             Section sectionClothing = NewSection("Clothing");
@@ -156,7 +156,7 @@ namespace ERP_Fix
 
         public Article NewArticle(int typeId, int stock, bool toList = true)
         {
-            ArticleType articleType = FindArticleType(typeId);
+            ArticleType? articleType = FindArticleType(typeId);
             if (articleType == null) // Ensure proper null checks
             {
                 throw new ArgumentException($"Article type with ID {typeId} does not exist.");
@@ -174,7 +174,7 @@ namespace ERP_Fix
 
         public OrderItem NewOrderItem(int typeId, int stock, bool toList = true)
         {
-            ArticleType articleType = FindArticleType(typeId);
+            ArticleType? articleType = FindArticleType(typeId);
             if (articleType == null) // Ensure proper null checks
             {
                 throw new ArgumentException($"Article type with ID {typeId} does not exist.");
@@ -221,11 +221,12 @@ namespace ERP_Fix
 
         public void SortArticle(int id, int slotId)
         {
-            Article article = FindArticle(id);
+            Article? article = FindArticle(id);
             if (article != null)
             {
-                StorageSlot slot = FindStorageSlotById(slotId);
-                slot.Fill.Add(article);
+                StorageSlot? slot = FindStorageSlotById(slotId);
+                if (slot != null)
+                    slot.Fill.Add(article);
             }
             else
             {
@@ -240,7 +241,7 @@ namespace ERP_Fix
             Console.ResetColor();
             foreach (Article item in articles)
             {
-                StorageSlot slot = FindStorageSlot(item);
+                StorageSlot? slot = FindStorageSlot(item);
                 string slot_id;
                 if (slot == null) slot_id = "unsorted";
                 else slot_id = slot.Id.ToString();
@@ -298,7 +299,7 @@ namespace ERP_Fix
                 {
                     foreach (OrderItem item in order.Articles)
                     {
-                        StorageSlot slot = FindStorageSlot(item);
+                        StorageSlot? slot = FindStorageSlot(item);
                         string slot_id;
                         if (slot == null) slot_id = "unsorted";
                         else slot_id = slot.Id.ToString();
@@ -362,7 +363,7 @@ namespace ERP_Fix
 
                 foreach (OrderItem item in bill.Order.Articles)
                 {
-                    StorageSlot slot = FindStorageSlot(item);
+                    StorageSlot? slot = FindStorageSlot(item);
                     string slot_id;
                     if (slot == null) slot_id = "unsorted";
                     else slot_id = slot.Id.ToString();
