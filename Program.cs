@@ -111,7 +111,6 @@ namespace ERP_Fix
 
             ListCustomers();
 
-            // Test payment terms
             DateTime date = DateTime.ParseExact("20.07.2025", "dd.MM.yyyy", CultureInfo.InvariantCulture);
             PaymentTerms? testPaymentTerms = NewPaymentTerms("30 Days 2% Discount", date, 20.0, penaltyRate: 0.03);
 
