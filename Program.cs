@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Xml.Serialization;
@@ -41,6 +42,10 @@ namespace ERP_Fix
         // Bills
         private List<Bill> bills = new List<Bill>();
         private int lastBillId = -1;
+
+        // Payment Terms
+        private List<PaymentTerms> paymentTerms = new List<PaymentTerms>();
+        private int lastPaymentTermsId = -1;
 
         // Orders
         private static int lastOrderItemId = 868434; // looks better
@@ -105,10 +110,10 @@ namespace ERP_Fix
             ListCustomers();
 
             // Test payment terms
-            PaymentTerms testPaymentTerms = new PaymentTerms(0, "30 Tage 2% Skonto", 30, 10, 0.02, 0.05);
-            Console.WriteLine(PaymentTerms.GetDiscountDate(DateTime.Today, testPaymentTerms.DiscountDays));
-            Console.WriteLine(PaymentTerms.GetDueDate(DateTime.Today, testPaymentTerms.DaysUntilDue));
-            Console.WriteLine(PaymentTerms.GetDiscountAmount(100, testPaymentTerms.DiscountPercent));
+            DateTime date = DateTime.ParseExact("20.07.2025", "dd.MM.yyyy", CultureInfo.InvariantCulture);
+            PaymentTerms? testPaymentTerms = NewPaymentTerms("30 Days 2% Discount", date, 20.0, penaltyRate: 0.03);
+
+            ListPaymentTerms();
         }
 
         int GenerateSequentialId()
@@ -406,6 +411,42 @@ namespace ERP_Fix
             Console.WriteLine("=========================");
         }
 
+        // Payment Terms
+        public PaymentTerms? NewPaymentTerms(string name, object daysUntilDue, double absolutePenalty, int? discountDays = 0, double? discountPercent = 0.00, double? penaltyRate = 0.00)
+        {
+            int cDaysUntilDue;
+            if (daysUntilDue is int)
+                cDaysUntilDue = (int)daysUntilDue;
+            else if (daysUntilDue is DateTime)
+                cDaysUntilDue = Math.Abs((DateTime.Now.Date - (DateTime)daysUntilDue).Days);
+            else
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine($"Error: daysUntilDue must be an int or DateTime => {daysUntilDue.GetType()} is not allowed");
+                Console.ResetColor();
+                return null;
+            }
+
+            PaymentTerms generated = new PaymentTerms(lastPaymentTermsId + 1, name, cDaysUntilDue, absolutePenalty, discountDays, discountPercent, penaltyRate);
+
+            paymentTerms.Add(generated);
+            lastBillId += 1;
+
+            return generated;
+        }
+
+        public void ListPaymentTerms()
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.WriteLine("===== Payment Terms =====");
+            Console.ResetColor();
+            foreach (PaymentTerms terms in paymentTerms)
+            {
+                Console.WriteLine($"ID: {terms.Id}, Name: {terms.Name}, Days Until Due: {terms.DaysUntilDue}, Discount Days: {terms.DiscountDays}, Discount Percent: {terms.DiscountPercent}, Penalty Rate: {terms.PenaltyRate}, Absolute Penalty: {terms.AbsolutePenalty}, Using Penalty Rate: {terms.UsingPenaltyRate.ToString()}");
+            }
+            Console.WriteLine("=========================");
+        }
+
         // Sections
         public Section NewSection(string name)
         {
@@ -586,14 +627,17 @@ namespace ERP_Fix
     public class PaymentTerms
     {
 
-        public int Id { get; set; }
+        public int Id { get; }
         public string Name { get; set; }
         public int DaysUntilDue { get; set; }
         public int? DiscountDays { get; set; }
         public double? DiscountPercent { get; set; }
-        public double? PenaltyRate { get; set; } // default interest
 
-        public PaymentTerms(int id, string name, int daysUntilDue, int? discountDays = null, double? discountPercent = null, double? penaltyRate = null)
+        public double? PenaltyRate { get; set; } // default interest
+        public double AbsolutePenalty { get; set; }
+        public bool UsingPenaltyRate { get; }
+
+        public PaymentTerms(int id, string name, int daysUntilDue, double absolutePenalty, int? discountDays = null, double? discountPercent = null, double? penaltyRate = null)
         {
             Id = id;
             Name = name;
@@ -601,6 +645,8 @@ namespace ERP_Fix
             DiscountDays = discountDays;
             DiscountPercent = discountPercent;
             PenaltyRate = penaltyRate;
+            AbsolutePenalty = absolutePenalty;
+            UsingPenaltyRate = penaltyRate.HasValue && penaltyRate.Value > 0;
         }
 
         public static DateTime GetDueDate(DateTime InvoiceDate, int DaysUntilDue)
