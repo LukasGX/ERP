@@ -103,6 +103,12 @@ namespace ERP_Fix
             ListEmployees();
 
             ListCustomers();
+
+            // Test payment terms
+            PaymentTerms testPaymentTerms = new PaymentTerms(0, "30 Tage 2% Skonto", 30, 10, 0.02, 0.05);
+            Console.WriteLine(PaymentTerms.GetDiscountDate(DateTime.Today, testPaymentTerms.DiscountDays));
+            Console.WriteLine(PaymentTerms.GetDueDate(DateTime.Today, testPaymentTerms.DaysUntilDue));
+            Console.WriteLine(PaymentTerms.GetDiscountAmount(100, testPaymentTerms.DiscountPercent));
         }
 
         int GenerateSequentialId()
@@ -574,6 +580,42 @@ namespace ERP_Fix
             TotalPrice = totalPrice;
             Order = order;
             Customer = order.Customer;
+        }
+    }
+
+    public class PaymentTerms
+    {
+
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public int DaysUntilDue { get; set; }
+        public int? DiscountDays { get; set; }
+        public double? DiscountPercent { get; set; }
+        public double? PenaltyRate { get; set; } // default interest
+
+        public PaymentTerms(int id, string name, int daysUntilDue, int? discountDays = null, double? discountPercent = null, double? penaltyRate = null)
+        {
+            Id = id;
+            Name = name;
+            DaysUntilDue = daysUntilDue;
+            DiscountDays = discountDays;
+            DiscountPercent = discountPercent;
+            PenaltyRate = penaltyRate;
+        }
+
+        public static DateTime GetDueDate(DateTime InvoiceDate, int DaysUntilDue)
+        {
+            return InvoiceDate.AddDays(DaysUntilDue);
+        }
+
+        public static DateTime? GetDiscountDate(DateTime invoiceDate, int? discountDays)
+        {
+            return discountDays.HasValue ? invoiceDate.AddDays(discountDays.Value) : null;
+        }
+
+        public static double GetDiscountAmount(double totalAmount, double? discountPercent)
+        {
+            return discountPercent.HasValue ? totalAmount * (double)discountPercent : 0;
         }
     }
 
