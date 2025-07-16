@@ -12,6 +12,8 @@ namespace ERP_Fix
     {
         static void Main(string[] args)
         {
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+
             //Shell shell = new Shell();
             //shell.Start();
 
@@ -63,11 +65,21 @@ namespace ERP_Fix
         private List<Customer> customers = new List<Customer>();
         private int lastCustomerId = -1;
 
+        // currency
+        private NumberFormatInfo currentCurrencyFormat = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
+
+        // own capital
+        public double ownCapital;
+        public bool ownCapitalSet = false;
+
         public const ConsoleColor SECTION_INDICATOR_COLOR = ConsoleColor.Cyan;
 
         public void Start()
         {
             // Tests
+            SetCurrency("de-DE");
+            SetOwnCapital(200000.00);
+
             ArticleType boot = NewArticleType("Boot");
             ArticleType hat = NewArticleType("Hat");
 
@@ -123,6 +135,54 @@ namespace ERP_Fix
             {
                 return ++lastOrderItemId;
             }
+        }
+
+        // Own capital
+        public void SetOwnCapital(double newOwnCapital)
+        {
+            ownCapital = Math.Round(newOwnCapital, 2);
+            Console.WriteLine($"[INFO] Own capital set to {FormatAmount(ownCapital)}");
+        }
+
+        public void AddOwnCapital(double capitalToAdd)
+        {
+            ownCapital += Math.Round(capitalToAdd, 2);
+            Console.WriteLine($"[INFO] Added {FormatAmount(capitalToAdd)} to own capital. Own capital: {FormatAmount(ownCapital)}");
+        }
+
+        public void RemoveOwnCapital(double capitalToRemove)
+        {
+            if (ownCapital >= capitalToRemove)
+            {
+                ownCapital -= Math.Round(capitalToRemove, 2);
+                Console.WriteLine($"[INFO] Removed {FormatAmount(capitalToRemove)} from own capital. Own capital: {FormatAmount(ownCapital)}");
+            }
+            else
+                Console.WriteLine($"[ERROR] Can't remove {FormatAmount(capitalToRemove)} from {FormatAmount(ownCapital)} own capital");
+        }
+
+        public void SetCurrency(string cultureName)
+        {
+            var cultureInfo = CultureInfo.CurrentCulture;
+
+            try
+            {
+                cultureInfo = new CultureInfo(cultureName);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Invalid culture name '{cultureName}'");
+                return;
+            }
+
+            currentCurrencyFormat = (NumberFormatInfo)cultureInfo.NumberFormat.Clone();
+
+            currentCurrencyFormat.CurrencyDecimalDigits = 2;
+        }
+
+        public string FormatAmount(double amount)
+        {
+            return amount.ToString("C", currentCurrencyFormat);
         }
 
         // Warehousing
