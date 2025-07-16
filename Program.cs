@@ -37,6 +37,10 @@ namespace ERP_Fix
         private List<Order> orders = new List<Order>();
         private int lastOrderId = -1;
 
+        // SelfOrders
+        private List<SelfOrder> selfOrders = new List<SelfOrder>();
+        private int lastSelfOrderId = -1;
+
         // Prices
         private List<Prices> prices = new List<Prices>();
         private int lastPricesId = -1;
@@ -88,12 +92,27 @@ namespace ERP_Fix
             ArticleType hat = NewArticleType("Hat");
 
             Article boots = NewArticle(0, 100);
-            Article hats = NewArticle(1, 140);
+            Article hats = NewArticle(1, 40);
 
             wantedStock.Add(boot, 1000);
             //wantedStock.Add(hat, 1000);
 
-            SuggestOrders();
+            Dictionary<ArticleType, int> suggestions = SuggestOrders();
+
+            // we respect the order suggestions
+            List<OrderItem> toSelfOrder = new List<OrderItem>();
+            foreach (var suggestion in suggestions)
+            {
+                toSelfOrder.Add(NewOrderItem(suggestion.Key.Id, suggestion.Value));
+            }
+
+            SelfOrder selfOrder = NewSelfOrder(toSelfOrder);
+            ListSelfOrders();
+            selfOrder.Arrive(NewOrderItem(0, 200));
+            selfOrder.Arrive(NewOrderItem(1, 60));
+            ListSelfOrders();
+            selfOrder.Arrive(NewOrderItem(0, 700));
+            ListSelfOrders();
 
             /*
             Customer customerJaneDoe = NewCustomer("Jane Doe");
@@ -136,8 +155,7 @@ namespace ERP_Fix
             DateTime date = DateTime.ParseExact("20.07.2025", "dd.MM.yyyy", CultureInfo.InvariantCulture);
             PaymentTerms? testPaymentTerms = NewPaymentTerms("30 Days 2% Discount", date, 20.0, penaltyRate: 0.03);
 
-            ListPaymentTerms();
-            */
+            ListPaymentTerms();*/
         }
 
         int GenerateSequentialId()
@@ -197,8 +215,10 @@ namespace ERP_Fix
         }
 
         // jobs
-        public void SuggestOrders()
+        public Dictionary<ArticleType, int> SuggestOrders()
         {
+            Dictionary<ArticleType, int> generated = new Dictionary<ArticleType, int>();
+
             foreach (ArticleType type in articleTypes)
             {
                 List<Article> articles = GetArticlesByType(type);
@@ -208,11 +228,18 @@ namespace ERP_Fix
                     fullStock += article.Stock;
 
                 if (wantedStock.ContainsKey(type) && fullStock < wantedStock[type])
+                {
                     Console.WriteLine($"Suggested Order: {wantedStock[type] - fullStock} of article type {type.Name} ({type.Id})");
-
+                    generated[type] = wantedStock[type] - fullStock;
+                }
                 else if (!wantedStock.ContainsKey(type) && fullStock < WANTED_STOCK_DEFAULT)
+                {
                     Console.WriteLine($"Suggested Order: {WANTED_STOCK_DEFAULT - fullStock} of article type {type.Name} ({type.Id}). (Used default as no suitable wantedStock entry was found)");
+                    generated[type] = WANTED_STOCK_DEFAULT - fullStock;
+                }
             }
+
+            return generated;
         }
 
         // Warehousing
@@ -431,6 +458,66 @@ namespace ERP_Fix
         {
             order.Status = OrderStatus.Cancelled;
             Console.WriteLine($"[INFO] Order with ID {order.Id} has been cancelled.");
+        }
+
+        // SelfOrders
+        public SelfOrder NewSelfOrder(List<OrderItem> orderArticles)
+        {
+            SelfOrder generated = new SelfOrder(lastSelfOrderId + 1, orderArticles);
+
+            selfOrders.Add(generated);
+            lastSelfOrderId += 1;
+
+            return generated;
+        }
+
+        public void ListSelfOrders(bool showFullNotPending = false)
+        {
+            Console.ForegroundColor = SECTION_INDICATOR_COLOR;
+            Console.WriteLine("======= Self Orders =======");
+            Console.ResetColor();
+            foreach (SelfOrder selfOrder in selfOrders)
+            {
+                Console.Write($"ID: {selfOrder.Id}, Status: ");
+                if (selfOrder.Status == OrderStatus.Pending)
+                {
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                }
+                else if (selfOrder.Status == OrderStatus.Completed)
+                {
+                    Console.ForegroundColor = ConsoleColor.Green;
+                }
+                else if (selfOrder.Status == OrderStatus.Cancelled)
+                {
+                    Console.ForegroundColor = ConsoleColor.Red;
+                }
+                Console.WriteLine(selfOrder.Status);
+                Console.ResetColor();
+
+                if (selfOrder.Status == OrderStatus.Pending || showFullNotPending)
+                {
+                    foreach (OrderItem item in selfOrder.Articles)
+                    {
+                        StorageSlot? slot = FindStorageSlot(item);
+                        string slot_id;
+                        if (slot == null) slot_id = "unsorted";
+                        else slot_id = slot.Id.ToString();
+                        Console.WriteLine($"ArticleType-ID: {item.Type.Id}, Article-ID: {item.Id}, Name: {item.Type.Name}, Stock: {item.Stock}, In Slot {slot_id}");
+                    }
+                }
+            }
+            Console.WriteLine("=========================");
+        }
+
+        public void FinishSelfOrder(SelfOrder selfOrder)
+        {
+            selfOrder.Status = OrderStatus.Completed;
+        }
+
+        public void CancelSelfOrder(SelfOrder selfOrder)
+        {
+            selfOrder.Status = OrderStatus.Cancelled;
+            Console.WriteLine($"[INFO] Order with ID {selfOrder.Id} has been cancelled.");
         }
 
         // Bills
@@ -687,6 +774,56 @@ namespace ERP_Fix
             Id = id;
             Type = type;
             Stock = stock;
+        }
+    }
+
+    public class SelfOrder
+    {
+        public int Id { get; }
+        public List<OrderItem> Articles { get; set; }
+        public List<OrderItem> Arrived { get; set; }
+        public OrderStatus Status { get; set; } = OrderStatus.Pending;
+
+        public SelfOrder(int id, List<OrderItem> articles)
+        {
+            Id = id;
+            Articles = articles;
+            Arrived = new List<OrderItem>();
+        }
+
+        public void Arrive(OrderItem item)
+        {
+            var existing = Articles.FirstOrDefault(a => a.Type == item.Type);
+            if (existing == null)
+            {
+                Console.WriteLine($"[ERROR] Item {item.Type.Name} not found in self-order {Id}");
+                return;
+            }
+            if (item.Stock <= 0)
+            {
+                Console.WriteLine($"[ERROR] Delivered quantity must be greater than 0.");
+                return;
+            }
+            if (item.Stock > existing.Stock)
+            {
+                Console.WriteLine($"[WARN] Delivered quantity ({item.Stock}) exceeds remaining stock ({existing.Stock}) in self-order {Id}. Capping to {existing.Stock}.");
+                item.Stock = existing.Stock;
+            }
+            existing.Stock -= item.Stock;
+
+            OrderItem arrivedItem = new OrderItem(item.Id, existing.Type, item.Stock);
+            Arrived.Add(arrivedItem);
+            if (existing.Stock == 0)
+            {
+                Articles.Remove(existing);
+            }
+            Console.WriteLine($"[INFO] Item {item.Type.Name} arrived with quantity {item.Stock}.");
+
+            if (Articles.Count == 0)
+            {
+                Status = OrderStatus.Completed;
+                Console.WriteLine($"[INFO] Self-order {Id} is now completed as all items have arrived.");
+            }
         }
     }
 
