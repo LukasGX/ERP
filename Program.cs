@@ -72,6 +72,10 @@ namespace ERP_Fix
         public double ownCapital;
         public bool ownCapitalSet = false;
 
+        // for order suggestions
+        public Dictionary<ArticleType, int> wantedStock = new Dictionary<ArticleType, int>();
+        public const int WANTED_STOCK_DEFAULT = 100;
+
         public const ConsoleColor SECTION_INDICATOR_COLOR = ConsoleColor.Cyan;
 
         public void Start()
@@ -84,8 +88,14 @@ namespace ERP_Fix
             ArticleType hat = NewArticleType("Hat");
 
             Article boots = NewArticle(0, 100);
-            Article hats = NewArticle(1, 40);
+            Article hats = NewArticle(1, 140);
 
+            wantedStock.Add(boot, 1000);
+            //wantedStock.Add(hat, 1000);
+
+            SuggestOrders();
+
+            /*
             Customer customerJaneDoe = NewCustomer("Jane Doe");
 
             Order order = NewOrder(new List<OrderItem>()
@@ -127,6 +137,7 @@ namespace ERP_Fix
             PaymentTerms? testPaymentTerms = NewPaymentTerms("30 Days 2% Discount", date, 20.0, penaltyRate: 0.03);
 
             ListPaymentTerms();
+            */
         }
 
         int GenerateSequentialId()
@@ -185,10 +196,34 @@ namespace ERP_Fix
             return amount.ToString("C", currentCurrencyFormat);
         }
 
+        // jobs
+        public void SuggestOrders()
+        {
+            foreach (ArticleType type in articleTypes)
+            {
+                List<Article> articles = GetArticlesByType(type);
+
+                int fullStock = 0;
+                foreach (Article article in articles)
+                    fullStock += article.Stock;
+
+                if (wantedStock.ContainsKey(type) && fullStock < wantedStock[type])
+                    Console.WriteLine($"Suggested Order: {wantedStock[type] - fullStock} of article type {type.Name} ({type.Id})");
+
+                else if (!wantedStock.ContainsKey(type) && fullStock < WANTED_STOCK_DEFAULT)
+                    Console.WriteLine($"Suggested Order: {WANTED_STOCK_DEFAULT - fullStock} of article type {type.Name} ({type.Id}). (Used default as no suitable wantedStock entry was found)");
+            }
+        }
+
         // Warehousing
         private Article? FindArticle(int id)
         {
             return articles.FirstOrDefault(a => a.Id == id);
+        }
+
+        public List<Article> GetArticlesByType(ArticleType type)
+        {
+            return articles.Where(article => article.Type == type).ToList();
         }
 
         private ArticleType? FindArticleType(int id)
