@@ -1,0 +1,179 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:ferd:CrossIndustryInvoice:invoice:1p0"
+    xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:12"
+    xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:15"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+
+	<!-- Dokumentdaten -->
+	<rsm:ExchangedDocument>
+		<ram:ID>INV-2025-12345</ram:ID>
+		<ram:TypeCode>380</ram:TypeCode>
+		<ram:IssueDateTime>
+			<udt:DateTimeString format="102">20250716</udt:DateTimeString>
+		</ram:IssueDateTime>
+		<ram:IncludedNote>
+			<ram:Content>Payment within 14 days with 2% discount, else net within 30 days.</ram:Content>
+		</ram:IncludedNote>
+	</rsm:ExchangedDocument>
+
+	<!-- Absender & Empfänger -->
+	<rsm:SupplyChainTradeTransaction>
+		<ram:ApplicableSupplyChainTradeAgreement>
+			<ram:SellerTradeParty>
+				<ram:Name>Supplier GmbH</ram:Name>
+				<ram:PostalTradeAddress>
+					<ram:PostcodeCode>10115</ram:PostcodeCode>
+					<ram:LineOne>Main Street 1</ram:LineOne>
+					<ram:CityName>Berlin</ram:CityName>
+					<ram:CountryID>DE</ram:CountryID>
+				</ram:PostalTradeAddress>
+				<ram:SpecifiedTaxRegistration>
+					<ram:ID>DE123456789</ram:ID>
+					<ram:TypeCode>VAT</ram:TypeCode>
+				</ram:SpecifiedTaxRegistration>
+			</ram:SellerTradeParty>
+			<ram:BuyerTradeParty>
+				<ram:Name>Buyer AG</ram:Name>
+				<ram:PostalTradeAddress>
+					<ram:PostcodeCode>20095</ram:PostcodeCode>
+					<ram:LineOne>Buyer Avenue 5</ram:LineOne>
+					<ram:CityName>Hamburg</ram:CityName>
+					<ram:CountryID>DE</ram:CountryID>
+				</ram:PostalTradeAddress>
+			</ram:BuyerTradeParty>
+			<ram:BuyerReference>12345678</ram:BuyerReference>
+			<ram:ContractReferencedDocument>
+				<ram:ID>ORD-2025-8899</ram:ID>
+			</ram:ContractReferencedDocument>
+		</ram:ApplicableSupplyChainTradeAgreement>
+
+		<ram:ApplicableSupplyChainTradeDelivery>
+			<ram:ActualDeliverySupplyChainEvent>
+				<ram:OccurrenceDateTime>
+					<udt:DateTimeString format="102">20250715</udt:DateTimeString>
+				</ram:OccurrenceDateTime>
+			</ram:ActualDeliverySupplyChainEvent>
+		</ram:ApplicableSupplyChainTradeDelivery>
+
+		<ram:ApplicableSupplyChainTradeSettlement>
+			<ram:PaymentReference>INV-2025-12345</ram:PaymentReference>
+			<ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+			<ram:SpecifiedTradeSettlementPaymentMeans>
+				<ram:TypeCode>58</ram:TypeCode>
+				<ram:Information>SEPA transfer to DE12345678901234567890</ram:Information>
+			</ram:SpecifiedTradeSettlementPaymentMeans>
+			<ram:SpecifiedTradeSettlementMonetarySummation>
+				<ram:LineTotalAmount>2610.00</ram:LineTotalAmount>
+				<ram:TaxTotalAmount currencyID="EUR">415.20</ram:TaxTotalAmount>
+				<ram:GrandTotalAmount currencyID="EUR">3025.20</ram:GrandTotalAmount>
+			</ram:SpecifiedTradeSettlementMonetarySummation>
+			<ram:ApplicableTradeTax>
+				<ram:CalculatedAmount>415.20</ram:CalculatedAmount>
+				<ram:TypeCode>VAT</ram:TypeCode>
+				<ram:BasisAmount>2610.00</ram:BasisAmount>
+				<ram:CategoryCode>S</ram:CategoryCode>
+				<ram:RateApplicablePercent>16</ram:RateApplicablePercent>
+			</ram:ApplicableTradeTax>
+		</ram:ApplicableSupplyChainTradeSettlement>
+
+		<!-- Position 1: Laptop -->
+		<ram:IncludedSupplyChainTradeLineItem>
+			<ram:AssociatedDocumentLineDocument>
+				<ram:LineID>1</ram:LineID>
+			</ram:AssociatedDocumentLineDocument>
+			<ram:SpecifiedTradeProduct>
+				<ram:Name>Laptop Pro 15"</ram:Name>
+				<ram:Description>Powerful business notebook</ram:Description>
+				<ram:BuyerAssignedID>P-101</ram:BuyerAssignedID>
+			</ram:SpecifiedTradeProduct>
+			<ram:SpecifiedLineTradeAgreement>
+				<ram:GrossPriceProductTradePrice>
+					<ram:ChargeAmount>1200.00</ram:ChargeAmount>
+				</ram:GrossPriceProductTradePrice>
+				<ram:NetPriceProductTradePrice>
+					<ram:ChargeAmount>1200.00</ram:ChargeAmount>
+				</ram:NetPriceProductTradePrice>
+			</ram:SpecifiedLineTradeAgreement>
+			<ram:SpecifiedLineTradeDelivery>
+				<ram:BilledQuantity unitCode="C62">2</ram:BilledQuantity>
+			</ram:SpecifiedLineTradeDelivery>
+			<ram:SpecifiedLineTradeSettlement>
+				<ram:ApplicableTradeTax>
+					<ram:TypeCode>VAT</ram:TypeCode>
+					<ram:CategoryCode>S</ram:CategoryCode>
+					<ram:RateApplicablePercent>16</ram:RateApplicablePercent>
+				</ram:ApplicableTradeTax>
+				<ram:SpecifiedTradeSettlementLineMonetarySummation>
+					<ram:LineTotalAmount>2400.00</ram:LineTotalAmount>
+				</ram:SpecifiedTradeSettlementLineMonetarySummation>
+			</ram:SpecifiedLineTradeSettlement>
+		</ram:IncludedSupplyChainTradeLineItem>
+
+		<!-- Position 2: Maus -->
+		<ram:IncludedSupplyChainTradeLineItem>
+			<ram:AssociatedDocumentLineDocument>
+				<ram:LineID>2</ram:LineID>
+			</ram:AssociatedDocumentLineDocument>
+			<ram:SpecifiedTradeProduct>
+				<ram:Name>Optical Mouse</ram:Name>
+				<ram:Description>Ergonomic mouse, wireless</ram:Description>
+				<ram:BuyerAssignedID>P-202</ram:BuyerAssignedID>
+			</ram:SpecifiedTradeProduct>
+			<ram:SpecifiedLineTradeAgreement>
+				<ram:GrossPriceProductTradePrice>
+					<ram:ChargeAmount>50.00</ram:ChargeAmount>
+				</ram:GrossPriceProductTradePrice>
+				<ram:NetPriceProductTradePrice>
+					<ram:ChargeAmount>50.00</ram:ChargeAmount>
+				</ram:NetPriceProductTradePrice>
+			</ram:SpecifiedLineTradeAgreement>
+			<ram:SpecifiedLineTradeDelivery>
+				<ram:BilledQuantity unitCode="C62">4</ram:BilledQuantity>
+			</ram:SpecifiedLineTradeDelivery>
+			<ram:SpecifiedLineTradeSettlement>
+				<ram:ApplicableTradeTax>
+					<ram:TypeCode>VAT</ram:TypeCode>
+					<ram:CategoryCode>S</ram:CategoryCode>
+					<ram:RateApplicablePercent>16</ram:RateApplicablePercent>
+				</ram:ApplicableTradeTax>
+				<ram:SpecifiedTradeSettlementLineMonetarySummation>
+					<ram:LineTotalAmount>200.00</ram:LineTotalAmount>
+				</ram:SpecifiedTradeSettlementLineMonetarySummation>
+			</ram:SpecifiedLineTradeSettlement>
+		</ram:IncludedSupplyChainTradeLineItem>
+
+		<!-- Position 3: Monitor -->
+		<ram:IncludedSupplyChainTradeLineItem>
+			<ram:AssociatedDocumentLineDocument>
+				<ram:LineID>3</ram:LineID>
+			</ram:AssociatedDocumentLineDocument>
+			<ram:SpecifiedTradeProduct>
+				<ram:Name>Monitor 27"</ram:Name>
+				<ram:Description>Full HD LED Display</ram:Description>
+				<ram:BuyerAssignedID>P-303</ram:BuyerAssignedID>
+			</ram:SpecifiedTradeProduct>
+			<ram:SpecifiedLineTradeAgreement>
+				<ram:GrossPriceProductTradePrice>
+					<ram:ChargeAmount>170.00</ram:ChargeAmount>
+				</ram:GrossPriceProductTradePrice>
+				<ram:NetPriceProductTradePrice>
+					<ram:ChargeAmount>170.00</ram:ChargeAmount>
+				</ram:NetPriceProductTradePrice>
+			</ram:SpecifiedLineTradeAgreement>
+			<ram:SpecifiedLineTradeDelivery>
+				<ram:BilledQuantity unitCode="C62">1</ram:BilledQuantity>
+			</ram:SpecifiedLineTradeDelivery>
+			<ram:SpecifiedLineTradeSettlement>
+				<ram:ApplicableTradeTax>
+					<ram:TypeCode>VAT</ram:TypeCode>
+					<ram:CategoryCode>S</ram:CategoryCode>
+					<ram:RateApplicablePercent>16</ram:RateApplicablePercent>
+				</ram:ApplicableTradeTax>
+				<ram:SpecifiedTradeSettlementLineMonetarySummation>
+					<ram:LineTotalAmount>170.00</ram:LineTotalAmount>
+				</ram:SpecifiedTradeSettlementLineMonetarySummation>
+			</ram:SpecifiedLineTradeSettlement>
+		</ram:IncludedSupplyChainTradeLineItem>
+
+	</rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>
