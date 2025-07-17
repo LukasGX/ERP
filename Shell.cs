@@ -95,7 +95,7 @@ namespace ERP_Fix
             Dictionary<int, Bill> bills = new Dictionary<int, Bill>();
             Dictionary<int, Prices> prices = new Dictionary<int, Prices>();
 
-            Program program = new Program();
+            ERPManager program = new ERPManager();
 
             while (true)
             {
@@ -447,7 +447,7 @@ namespace ERP_Fix
         }
 
         private void CreateNewArticle(
-    Program program,
+    ERPManager program,
     NameCollection<int, string, ArticleType> articleTypes,
     Dictionary<int, Article> articles,
     Dictionary<string, string> parameters = null)

@@ -18,12 +18,12 @@ namespace ERP_Fix
             //Shell shell = new Shell();
             //shell.Start();
 
-            Program program = new Program();
-            program.Start();
+            ERPManager erpManager = new ERPManager();
+            erpManager.Start();
         }
     }
 
-    public class Program
+    public class ERPManager
     {
         // Warehousing
         private List<Article> articles = new List<Article>();
@@ -241,6 +241,52 @@ namespace ERP_Fix
             }
 
             return generated;
+        }
+
+        // reveal internal lists
+        public int GetArticleCount()
+        {
+            return articles.Count;
+        }
+        public int GetArticleTypeCount()
+        {
+            return articleTypes.Count;
+        }
+        public int GetStorageSlotCount()
+        {
+            return storageSlots.Count;
+        }
+        public int GetOrderCount()
+        {
+            return orders.Count;
+        }
+        public int GetSelfOrderCount()
+        {
+            return selfOrders.Count;
+        }
+        public int GetPricesCount()
+        {
+            return prices.Count;
+        }
+        public int GetBillCount()
+        {
+            return bills.Count;
+        }
+        public int GetPaymentTermsCount()
+        {
+            return paymentTerms.Count;
+        }
+        public int GetSectionCount()
+        {
+            return sections.Count;
+        }
+        public int GetEmployeeCount()
+        {
+            return employees.Count;
+        }
+        public int GetCustomerCount()
+        {
+            return customers.Count;
         }
 
         // Warehousing

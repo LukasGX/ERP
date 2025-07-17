@@ -10,7 +10,7 @@ namespace ERP_Fix
     {
         public void Start()
         {
-            Program program = new Program();
+            ERPManager program = new ERPManager();
 
             // storage slots
             program.NewStorageSlot();
@@ -53,14 +53,14 @@ namespace ERP_Fix
             program.ListBills();
         }
 
-        private void ProduceHammer(Program program, int amount)
+        private void ProduceHammer(ERPManager program, int amount)
         {
             program.WithdrawArticle(0, amount);
             program.WithdrawArticle(1, amount);
             program.RestockArticle(2, amount);
         }
 
-        private void ExecuteOrders(Program program, Prices prices)
+        private void ExecuteOrders(ERPManager program, Prices prices)
         {
             Order newestOrder = program.NewestOrder();
             foreach (OrderItem item in newestOrder.Articles)
