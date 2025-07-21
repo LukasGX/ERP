@@ -1,0 +1,90 @@
+Custom Software License Agreement – “ERP”
+
+Copyright © 2025 Lukas Grambs (GitHub: LukasGX)  
+Contact: lukas@grambs.info
+
+This license governs the use, copying, distribution, and integration of the software project named **“ERP”** (hereafter referred to as “the Software”).
+
+---
+
+## 1. Subject
+This license applies to the entire contents of the repository and all included files unless explicitly stated otherwise. The Software is provided free of charge for personal, educational, and nonprofit use.
+
+---
+
+## 2. Permissions
+
+### ✔️ Use
+- Anyone may use the Software for **non-commercial** purposes.
+- Private individuals may modify the Software **for their own personal use only**, provided the modified version is **not shared or deployed** in companies or organizational environments.
+
+### ✔️ Extensions and Integration
+- Third parties are allowed to create plugins, add-ons, or integrations using **official public APIs or extension interfaces**, and may link or integrate the Software in **commercial or closed-source systems**, as long as:
+  - The **core Software is not modified**.
+  - The integration **clearly credits** the original author (see §6).
+
+---
+
+## 3. Prohibited Uses
+
+### ❌ Commercial use
+- Commercial use of the unmodified or modified Software is **not allowed**.
+- Incorporation into **commercial or enterprise environments** is only permitted **when done via integration** (e.g. APIs or modules), **without modifying the core Software**.
+
+### ❌ Modification of Core
+- Modifying the Software is **prohibited** if the modified version is distributed or used by an organization (commercial or otherwise).
+- The **core Software**, defined as “all files and contents of this repository”, must remain intact when redistributed.
+
+---
+
+## 4. Attribution (Required)
+Every permitted use — including unmodified redistribution, extension via plugins, or integration — **must include visible attribution** to the original author:
+
+**Lukas Grambs (GitHub: LukasGX)**
+
+The attribution must be:
+- Publicly accessible,
+- Not hidden or placed in obscure locations (e.g. not only in source code comments), and
+- Clearly associated with the use of this Software.
+
+---
+
+## 5. Redistribution
+Distribution of **unmodified copies** of the Software is permitted for non-commercial purposes, provided:
+- This license file is included in full,
+- The author's name is preserved, and
+- No claim of ownership is made by third parties.
+
+---
+
+## 6. No Warranty / No Liability
+
+This Software is provided **"as is"**, without warranties of any kind. To the maximum extent permitted by applicable law:
+
+- The author makes **no warranties or guarantees**, express or implied, regarding the functionality, fitness for a particular purpose, or accuracy of the Software.
+- **The author is not liable** for any damage, loss of data, loss of profits, or other issues arising from the use, inability to use, or misuse of the Software.
+
+---
+
+## 7. License Fees
+The Software is provided **free of charge**, and no license fees shall apply.
+
+---
+
+## 8. Governing Law
+This license is governed by the laws of the Federal Republic of Germany.
+
+---
+
+## 9. Termination
+This license is automatically terminated if:
+- You violate any term or condition stated above, or
+- You use the Software in any commercial manner not explicitly permitted.
+
+Upon termination, you must stop all usage and, if applicable, remove all copies in your possession or control.
+
+---
+
+## 10. Final Note
+
+By using, integrating, or extending this Software, you agree to the terms of this License.
