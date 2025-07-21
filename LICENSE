@@ -22,6 +22,8 @@ This license applies to the entire contents of the repository and all included f
 - Third parties are allowed to create plugins, add-ons, or integrations using **official public APIs or extension interfaces**, and may link or integrate the Software in **commercial or closed-source systems**, as long as:
   - The **core Software is not modified**.
   - The integration **clearly credits** the original author (see §6).
+- A **default plugin component** (referred to as the “Shell”) is provided for convenience, but its use is **optional**.  
+  Developers may choose to interact with the Software through its **officially documented interfaces** directly, without using or modifying the Shell.
 
 ---
 
@@ -88,3 +90,4 @@ Upon termination, you must stop all usage and, if applicable, remove all copies 
 ## 10. Final Note
 
 By using, integrating, or extending this Software, you agree to the terms of this License.
+
