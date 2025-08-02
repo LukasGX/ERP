@@ -11,15 +11,25 @@ namespace ERP_Fix
 {
     class Code
     {
+        public static bool HideCredits = false;
+
         static void Main(string[] args)
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+            if (args.Contains("--hide-credits"))
+            {
+                HideCredits = true;
+            }
+
             //Shell shell = new Shell();
             //shell.Start();
 
-            ERPManager erpManager = new ERPManager();
-            erpManager.Start();
+            NewShell newShell = new NewShell();
+            newShell.Start();
+
+            // ERPManager erpManager = new ERPManager();
+            // erpManager.Start();
         }
     }
 
@@ -199,7 +209,7 @@ namespace ERP_Fix
             {
                 cultureInfo = new CultureInfo(cultureName);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 Console.WriteLine($"[ERROR] Invalid culture name '{cultureName}'");
                 return;
@@ -964,7 +974,7 @@ namespace ERP_Fix
     public abstract class Person
     {
         public int Id { get; set; }
-        public string Name { get; set; }
+        public string? Name { get; set; }
         public PersonType Type { get; set; }
     }
 

@@ -531,4 +531,100 @@ namespace ERP_Fix
             Console.WriteLine("<END-OF-OUTPUT>");
         }
     }
+
+    class NewShell
+    {
+        public void Start()
+        {
+            // Print out "ERP Shell" text
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine("  _____ ____  ____    ____  _          _ _ ");
+            Console.WriteLine(" | ____|  _ \\|  _ \\  / ___|| |__   ___| | |");
+            Console.WriteLine(" |  _| | |_) | |_) | \\___ \\| '_ \\ / _ \\ | |");
+            Console.WriteLine(" | |___|  _ <|  __/   ___) | | | |  __/ | |");
+            Console.WriteLine(" |_____|_| \\_\\_|     |____/|_| |_|\\___|_|_|");
+            Console.ResetColor();
+            Console.WriteLine("");
+            // credits
+            if (!Code.HideCredits)
+            {
+                Console.WriteLine("© 2025 Lukas Grambs");
+            }
+            // Auto help menu
+            HelpMenu();
+            // main loop
+            while (true)
+            {
+                // Show input indicator
+                Console.Write(">> ");
+                string? command = Console.ReadLine();
+                if (command == null || command == "")
+                {
+                    ShellAssistance.Error("Enter a valid command");
+                    continue;
+                }
+
+                if (command.StartsWith("help"))
+                {
+                    HelpMenu();
+                }
+                if (command.StartsWith("create"))
+                {
+                    Console.WriteLine("Which type of element do you want to create?");
+                    Console.WriteLine("Possible element types:\n   1) article-type\n   2) storage-slot\n   3) article\n   4) order\n   5) self-order\n   6) bill\n   7) price-list\n   8) payment-terms\n   9) section\n   10) employee\n   11) customer");
+                    Console.Write("create >> ");
+                    Console.ReadKey();
+                    Console.WriteLine("");
+                }
+                else if (command.StartsWith("exit") || command.StartsWith("quit"))
+                {
+                    Console.WriteLine("Goodbye!");
+                    break;
+                }
+                else
+                {
+                    ShellAssistance.Error("Enter a valid command");
+                }
+            }
+        }
+
+        public void HelpMenu()
+        {
+            ShellAssistance.WIT("============ Help Menu ============");
+            ShellAssistance.HelpOut("help", "Show this help menu");
+            ShellAssistance.HelpOut("create", "Create an element");
+            ShellAssistance.HelpOut("exit/quit", "Exit the program");
+        }
+    }
+
+    class ShellAssistance
+    {
+        public static void HelpOut(string cmd, string text)
+        {
+            Console.BackgroundColor = ConsoleColor.Yellow;
+            Console.ForegroundColor = ConsoleColor.Black;
+            Console.Write(cmd);
+            Console.ResetColor();
+            Console.Write(" ");
+            Console.WriteLine(text);
+            Console.ResetColor();
+        }
+
+        public static void WIT(string text)
+        {
+            Console.ForegroundColor = ConsoleColor.Blue;
+            Console.WriteLine(text);
+            Console.ResetColor();
+        }
+
+        public static void Error(string text)
+        {
+            Console.ForegroundColor = ConsoleColor.Red;
+            Console.Write("[ERROR]");
+            Console.ResetColor();
+            Console.Write(" ");
+            Console.WriteLine(text);
+            Console.ResetColor();
+        }
+    }
 }
