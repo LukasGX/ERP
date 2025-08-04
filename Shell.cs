@@ -5,6 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Text.RegularExpressions;
 using ERP_Fix;
+using System.Data.Common;
+using System.Drawing;
 
 namespace ERP_Fix
 {
@@ -534,6 +536,16 @@ namespace ERP_Fix
 
     class NewShell
     {
+        ERPManager erpManager = new();
+        Dictionary<int, ArticleType> articleTypes = new();
+        Dictionary<int, StorageSlot> storageSlots = new();
+        Dictionary<int, Article> articles = new();
+        Dictionary<int, Order> orders = new();
+        Dictionary<int, Bill> bills = new();
+        Dictionary<int, SelfOrder> selfOrders = new();
+        Dictionary<int, Customer> customers = new();
+        Dictionary<int, Prices> prices = new();
+
         public void Start()
         {
             // Print out "ERP Shell" text
@@ -570,11 +582,379 @@ namespace ERP_Fix
                 }
                 if (command.StartsWith("create"))
                 {
-                    Console.WriteLine("Which type of element do you want to create?");
-                    Console.WriteLine("Possible element types:\n   1) article-type\n   2) storage-slot\n   3) article\n   4) order\n   5) self-order\n   6) bill\n   7) price-list\n   8) payment-terms\n   9) section\n   10) employee\n   11) customer");
-                    Console.Write("create >> ");
-                    Console.ReadKey();
-                    Console.WriteLine("");
+                    bool preChoice = false;
+                    string? choiceStr = "";
+
+                    string[] commandSplit = command.Split(' ');
+                    if (commandSplit.Length > 1)
+                    {
+                        if (int.TryParse(commandSplit[1], out _))
+                        {
+                            preChoice = true;
+                            choiceStr = commandSplit[1];
+                        }
+                    }
+
+                    if (!preChoice)
+                    {
+                        Console.WriteLine("Which type of element do you want to create?");
+                        Console.WriteLine("Possible element types:\n   1) article-type\n   2) storage-slot\n   3) article\n   4) order\n   5) self-order\n   6) bill\n   7) price-list\n   8) payment-terms\n   9) section\n   10) employee\n   11) customer");
+                        Console.Write("create >> ");
+                        choiceStr = Console.ReadLine();
+                    }
+
+                    if (int.TryParse(choiceStr, out int choice))
+                    {
+                        if (choice == 1) // article-type
+                        {
+                            Console.WriteLine("Enter the name for the article type");
+                            Console.Write("create >> ");
+                            string? name = Console.ReadLine();
+                            if (name == null || name == "")
+                            {
+                                ShellAssistance.Error("Enter a valid name");
+                                continue;
+                            }
+
+                            ArticleType newArticleType = erpManager.NewArticleType(name);
+                            ShellAssistance.Success($"Your new article type ({newArticleType.Name}) is accessible as AT-{newArticleType.Id}");
+
+                            articleTypes.Add(newArticleType.Id, newArticleType);
+                        }
+                        else if (choice == 2) // storage-slot
+                        {
+                            StorageSlot newStorageSlot = erpManager.NewStorageSlot();
+                            ShellAssistance.Success($"Your new storage slot is accessible as S-{newStorageSlot.Id}");
+
+                            storageSlots.Add(newStorageSlot.Id, newStorageSlot);
+                        }
+                        else if (choice == 3) // article
+                        {
+                            if (erpManager.GetArticleTypeCount() == 0)
+                            {
+                                ShellAssistance.Error("Create an article type first");
+                                continue;
+                            }
+                            Console.WriteLine("Enter the article type (e.g. AT-0)");
+                            Console.Write("create >> ");
+                            string? atChoiceStr = Console.ReadLine();
+                            if (!atChoiceStr.StartsWith("AT-"))
+                            {
+                                ShellAssistance.Error("Enter a valid article type");
+                                continue;
+                            }
+                            string? isolatedAtChoiceStr = Regex.Replace(atChoiceStr, @"^AT-", "");
+
+                            if (int.TryParse(isolatedAtChoiceStr, out int atChoice))
+                            {
+                                Console.WriteLine("Enter the stock of the article");
+                                Console.Write("create >> ");
+                                string? stockChoiceStr = Console.ReadLine();
+
+                                if (int.TryParse(stockChoiceStr, out int stockChoice))
+                                {
+                                    Article newArticle = erpManager.NewArticle(atChoice, stockChoice);
+                                    ShellAssistance.Success($"Your new article is accessible as A-{newArticle.Id}");
+                                    articles.Add(newArticle.Id, newArticle);
+                                }
+                                else
+                                {
+                                    ShellAssistance.Error("Enter a valid stock as number");
+                                }
+                            }
+                            else
+                            {
+                                ShellAssistance.Error("Enter a valid article type");
+                            }
+                        }
+                        else if (choice == 4) // order
+                        {
+                            if (erpManager.GetArticleTypeCount() == 0)
+                            {
+                                ShellAssistance.Error("Create an article type first");
+                                continue;
+                            }
+
+                            if (erpManager.GetCustomerCount() == 0)
+                            {
+                                ShellAssistance.Error("Create a customer first");
+                                continue;
+                            }
+
+                            Console.WriteLine("Enter the Items you want to add to the order");
+                            Console.WriteLine("Enter in format AT-0;AT-1...");
+                            Console.Write("create >> ");
+                            string? atChoiceStr = Console.ReadLine();
+                            string[] atChoices = atChoiceStr.Split(';');
+
+                            List<OrderItem> orderItems = new();
+                            foreach (string atChoice in atChoices)
+                            {
+                                if (!atChoice.StartsWith("AT-"))
+                                {
+                                    ShellAssistance.Error($"Enter a valid article type instead of {atChoice}");
+                                    continue;
+                                }
+                                string? isolatedAtChoiceStr = Regex.Replace(atChoice, @"^AT-", "");
+
+                                if (int.TryParse(isolatedAtChoiceStr, out int atChoiceX))
+                                {
+                                    if (!articleTypes.TryGetValue(atChoiceX, out _))
+                                    {
+                                        ShellAssistance.Error($"Article type {atChoice} not found");
+                                        continue;
+                                    }
+
+                                    Console.WriteLine($"Enter stock for order item with article type {atChoice}");
+                                    Console.Write("create >> ");
+                                    string? stockChoiceStr = Console.ReadLine();
+
+                                    if (int.TryParse(stockChoiceStr, out int stockChoice))
+                                    {
+                                        orderItems.Add(erpManager.NewOrderItem(atChoiceX, stockChoice));
+                                        ShellAssistance.Success($"Order item ({atChoice}, stock {stockChoice}) added to order.");
+                                    }
+                                }
+                                else
+                                {
+                                    ShellAssistance.Error($"Invalid: Enter e.g. AT-0");
+                                }
+                            }
+
+                            Console.WriteLine("Enter customer for order");
+                            Console.Write("create >> ");
+                            string? customerChoiceStr = Console.ReadLine();
+                            if (!customerChoiceStr.StartsWith("C-"))
+                            {
+                                ShellAssistance.Error($"Enter a valid customer");
+                                continue;
+                            }
+                            string isolatedCustomerChoiceStr = Regex.Replace(customerChoiceStr, @"^C-", "");
+                            if (int.TryParse(isolatedCustomerChoiceStr, out int customerChoice))
+                            {
+                                if (customers.TryGetValue(customerChoice, out Customer customer))
+                                {
+                                    Order newOrder = erpManager.NewOrder(orderItems, customer);
+                                    orders.Add(newOrder.Id, newOrder);
+                                    ShellAssistance.Success($"Your new order is accessible as O-{newOrder.Id}");
+                                }
+                            }
+                        }
+                        else if (choice == 5) // self order
+                        {
+                            if (erpManager.GetArticleTypeCount() == 0)
+                            {
+                                ShellAssistance.Error("Create an article type first");
+                                continue;
+                            }
+
+                            Console.WriteLine("Enter the Items you want to add to the order");
+                            Console.WriteLine("Enter in format AT-0;AT-1...");
+                            Console.Write("create >> ");
+                            string? atChoiceStr = Console.ReadLine();
+                            string[] atChoices = atChoiceStr.Split(';');
+
+                            List<OrderItem> orderItems = new();
+                            foreach (string atChoice in atChoices)
+                            {
+                                if (!atChoice.StartsWith("AT-"))
+                                {
+                                    ShellAssistance.Error($"Enter a valid article type instead of {atChoice}");
+                                    continue;
+                                }
+                                string? isolatedAtChoiceStr = Regex.Replace(atChoice, @"^AT-", "");
+
+                                if (int.TryParse(isolatedAtChoiceStr, out int atChoiceX))
+                                {
+                                    if (!articleTypes.TryGetValue(atChoiceX, out _))
+                                    {
+                                        ShellAssistance.Error($"Article type {atChoice} not found");
+                                        continue;
+                                    }
+
+                                    Console.WriteLine($"Enter stock for order item with article type {atChoice}");
+                                    Console.Write("create >> ");
+                                    string? stockChoiceStr = Console.ReadLine();
+
+                                    if (int.TryParse(stockChoiceStr, out int stockChoice))
+                                    {
+                                        orderItems.Add(erpManager.NewOrderItem(atChoiceX, stockChoice));
+                                        ShellAssistance.Success($"Order item ({atChoice}, stock {stockChoice}) added to order.");
+                                    }
+                                }
+                                else
+                                {
+                                    ShellAssistance.Error($"Invalid: Enter e.g. AT-0");
+                                }
+                            }
+
+                            SelfOrder newSelfOrder = erpManager.NewSelfOrder(orderItems);
+                            selfOrders.Add(newSelfOrder.Id, newSelfOrder);
+                            ShellAssistance.Success($"Your new selforder is accessible as SO-{newSelfOrder.Id}");
+                        }
+                        else if (choice == 6) // bill
+                        {
+                            if (erpManager.GetOrderCount() == 0)
+                            {
+                                ShellAssistance.Error("Create an order first");
+                                continue;
+                            }
+
+                            if (erpManager.GetPricesCount() == 0)
+                            {
+                                ShellAssistance.Error("Create a price list first");
+                                continue;
+                            }
+
+                            Order orderToUse;
+                            Console.WriteLine("Enter the order to use");
+                            Console.Write("create >> ");
+                            string? orderChoiceStr = Console.ReadLine();
+                            if (!orderChoiceStr.StartsWith("O-"))
+                            {
+                                ShellAssistance.Error($"Enter a valid order");
+                                continue;
+                            }
+                            string isolatedOrderChoiceStr = Regex.Replace(orderChoiceStr, @"^O-", "");
+                            if (int.TryParse(isolatedOrderChoiceStr, out int orderChoice))
+                            {
+                                if (orders.TryGetValue(orderChoice, out Order order))
+                                {
+                                    orderToUse = order;
+                                }
+                                else
+                                {
+                                    orderToUse = null;
+                                }
+                            }
+                            else
+                            {
+                                orderToUse = null;
+                            }
+
+                            Console.WriteLine("Enter the price list to use");
+                            Console.Write("create >> ");
+                            string? pricesChoiceStr = Console.ReadLine();
+                            if (!pricesChoiceStr.StartsWith("O-"))
+                            {
+                                ShellAssistance.Error($"Enter a valid order");
+                                continue;
+                            }
+                            string isolatedPricesChoiceStr = Regex.Replace(pricesChoiceStr, @"^O-", "");
+                            if (int.TryParse(isolatedPricesChoiceStr, out int pricesChoice))
+                            {
+                                if (prices.TryGetValue(pricesChoice, out Prices priceList))
+                                {
+                                    Bill newBill = erpManager.NewBill(orderToUse, priceList);
+                                    bills.Add(newBill.Id, newBill);
+                                    ShellAssistance.Success($"Your new bill ist accessible as B-{newBill.Id}");
+                                }
+                            }
+                        }
+                        else if (choice > 6 && choice <= 11)
+                        {
+                            throw new NotImplementedException();
+                        }
+                        else
+                        {
+                            Console.WriteLine("Invalid choice");
+                        }
+                    }
+                    else
+                    {
+                        ShellAssistance.Error("Enter a valid option as number");
+                    }
+                }
+                else if (command.StartsWith("list"))
+                {
+                    bool preChoice = false;
+                    string? choiceStr = "";
+
+                    string[] commandSplit = command.Split(' ');
+                    if (commandSplit.Length > 1)
+                    {
+                        if (int.TryParse(commandSplit[1], out _))
+                        {
+                            preChoice = true;
+                            choiceStr = commandSplit[1];
+                        }
+                    }
+
+                    if (!preChoice)
+                    {
+                        Console.WriteLine("What to you want to list?");
+                        Console.WriteLine("Possible element types:\n   1) articles\n   2) storage slots\n   3) orders\n   4) self-orders\n   5) bills\n   6) price lists\n   7) payment terms\n   8) sections\n   9) employees\n   10) customers");
+                        Console.Write("list >> ");
+                        choiceStr = Console.ReadLine();
+                    }
+
+                    if (int.TryParse(choiceStr, out int choice))
+                    {
+                        if (choice == 1) // articles
+                        {
+                            erpManager.DisplayInventory();
+                        }
+                        else if (choice == 2) // storage slots
+                        {
+                            erpManager.ListStorageSlots();
+                        }
+                        else if (choice == 3) // orders
+                        {
+                            erpManager.ListOrders();
+                        }
+                        else if (choice == 4) // self-orders
+                        {
+                            erpManager.ListSelfOrders();
+                        }
+                        else if (choice == 5) // bills
+                        {
+                            erpManager.ListBills();
+                        }
+                        else if (choice == 6) // price lists
+                        {
+                            erpManager.ListPrices();
+                        }
+                        else if (choice == 7) // payment terms
+                        {
+                            erpManager.ListPaymentTerms();
+                        }
+                        else if (choice == 8) // sections
+                        {
+                            erpManager.ListSections();
+                        }
+                        else if (choice == 9) // employees
+                        {
+                            erpManager.ListEmployees();
+                        }
+                        else if (choice == 10) // customers
+                        {
+                            erpManager.ListCustomers();
+                        }
+                        else
+                        {
+                            ShellAssistance.Error("Invalid input");
+                        }
+                    }
+                    else
+                    {
+                        ShellAssistance.Error("Enter a valid option as number");
+                    }
+                }
+                else if (command.StartsWith("AT-"))
+                {
+                    string numStr = Regex.Replace(command, @"^AT-", "");
+                    if (int.TryParse(numStr, out int num))
+                    {
+                        if (articleTypes.ContainsKey(num) && articleTypes.TryGetValue(num, out ArticleType? articleType))
+                        {
+                            Console.WriteLine($"Article type info for AT-{num}");
+                            Console.WriteLine($"Name: {articleType.Name}\nId: {articleType.Id}");
+                        }
+                        else
+                        {
+                            ShellAssistance.Error("Unknown article type");
+                        }
+                    }
                 }
                 else if (command.StartsWith("exit") || command.StartsWith("quit"))
                 {
@@ -593,6 +973,8 @@ namespace ERP_Fix
             ShellAssistance.WIT("============ Help Menu ============");
             ShellAssistance.HelpOut("help", "Show this help menu");
             ShellAssistance.HelpOut("create", "Create an element");
+            ShellAssistance.HelpOut("list", "List something");
+            ShellAssistance.HelpOut("<element id>", "Show info about the element (e.g. AT-0)");
             ShellAssistance.HelpOut("exit/quit", "Exit the program");
         }
     }
@@ -621,6 +1003,15 @@ namespace ERP_Fix
         {
             Console.ForegroundColor = ConsoleColor.Red;
             Console.Write("[ERROR]");
+            Console.ResetColor();
+            Console.Write(" ");
+            Console.WriteLine(text);
+            Console.ResetColor();
+        }
+        public static void Success(string text)
+        {
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Write("[SUCCESS]");
             Console.ResetColor();
             Console.Write(" ");
             Console.WriteLine(text);
