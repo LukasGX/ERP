@@ -6,6 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Xml;
 using System.Xml.Serialization;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace ERP_Fix
 {
@@ -22,19 +25,43 @@ namespace ERP_Fix
                 HideCredits = true;
             }
 
-            //Shell shell = new Shell();
-            //shell.Start();
+            if (args.Contains("--shell"))
+            {
+                Shell shell = new Shell();
+                shell.Start();
+            }
+            else if (args.Contains("--newshell"))
+            {
+                NewShell newShell = new NewShell();
+                newShell.Start();
+            }
+            else
+            {
+                TUI tui = new TUI();
+                tui.Start();
+            }
 
-            NewShell newShell = new NewShell();
-            newShell.Start();
-
-            // ERPManager erpManager = new ERPManager();
+            // ERPManager erpManager = new ERPManager("STD");
             // erpManager.Start();
         }
     }
 
     public class ERPManager
     {
+        // Instance naming
+        public string InstanceName { get; }
+        public string FileBaseName => MakeFileSafe(InstanceName).ToLowerInvariant();
+
+        [Obsolete("Use ERPManager(string instanceName) to ensure the instance is properly named.")]
+        public ERPManager() : this("Unnamed") { }
+
+        public ERPManager(string instanceName)
+        {
+            if (string.IsNullOrWhiteSpace(instanceName))
+                throw new ArgumentException("Instance name cannot be empty.", nameof(instanceName));
+            InstanceName = instanceName;
+        }
+
         // Warehousing
         private List<Article> articles = new List<Article>();
         private List<ArticleType> articleTypes = new List<ArticleType>();
@@ -124,6 +151,8 @@ namespace ERP_Fix
             ListSelfOrders();
             selfOrder.Arrive(NewOrderItem(0, 700));
             ListSelfOrders();
+
+            SaveInstance("instances/");
 
             /*
             Customer customerJaneDoe = NewCustomer("Jane Doe");
@@ -223,6 +252,445 @@ namespace ERP_Fix
         public string FormatAmount(double amount)
         {
             return amount.ToString("C", currentCurrencyFormat);
+        }
+
+        // save and open instance
+        public void SaveInstance(string path)
+        {
+            if (string.IsNullOrWhiteSpace(InstanceName))
+                throw new InvalidOperationException("Instance must have a name before saving.");
+
+            // Build a snapshot DTO to avoid issues with complex keys and references
+            var snapshot = BuildSnapshot();
+
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+            string json = JsonSerializer.Serialize(snapshot, options);
+
+            // Determine output file path
+            string fileName = $"{FileBaseName}.erp";
+            string targetPath = path;
+
+            try
+            {
+                if (string.IsNullOrWhiteSpace(targetPath))
+                {
+                    targetPath = fileName; // current directory
+                }
+                else if (Directory.Exists(targetPath) || !Path.HasExtension(targetPath))
+                {
+                    // Treat as directory (or a path without extension)
+                    Directory.CreateDirectory(targetPath);
+                    targetPath = Path.Combine(targetPath, fileName);
+                }
+                else
+                {
+                    // Treat as file; normalize extension to .erp
+                    var dir = Path.GetDirectoryName(targetPath);
+                    if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+                    targetPath = Path.ChangeExtension(targetPath, ".erp");
+                }
+
+                File.WriteAllText(targetPath, json, Encoding.UTF8);
+                Console.WriteLine($"[INFO] Instance '{InstanceName}' saved to {targetPath}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to save instance: {ex.Message}");
+                throw;
+            }
+        }
+
+        public static ERPManager OpenInstance(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Path must not be empty.", nameof(path));
+
+            // Do NOT accept a directory here; force the caller to pass a file path
+            if (Directory.Exists(path))
+                throw new InvalidOperationException($"'{path}' is a directory. Please provide a .erp file path, e.g., instances/std.erp.");
+
+            string targetPath = path;
+
+            // Convenience: if no extension is provided, try appending .erp
+            if (!Path.HasExtension(targetPath))
+            {
+                var withExt = Path.ChangeExtension(targetPath, ".erp");
+                if (File.Exists(withExt))
+                {
+                    targetPath = withExt;
+                }
+            }
+
+            if (!File.Exists(targetPath))
+                throw new FileNotFoundException($".erp file not found: {targetPath}");
+
+            // Enforce .erp extension
+            if (!string.Equals(Path.GetExtension(targetPath), ".erp", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException($"File must have .erp extension: {targetPath}");
+
+            try
+            {
+                string json = File.ReadAllText(targetPath, Encoding.UTF8);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+                var snapshot = JsonSerializer.Deserialize<ERPInstanceSnapshot>(json, options)
+                               ?? throw new InvalidDataException("Failed to parse .erp snapshot.");
+
+                return FromSnapshot(snapshot);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ERROR] Failed to open instance: {ex.Message}");
+                throw;
+            }
+        }
+
+        private static ERPManager FromSnapshot(ERPInstanceSnapshot snapshot)
+        {
+            var instanceName = string.IsNullOrWhiteSpace(snapshot.InstanceName) ? "Unnamed" : snapshot.InstanceName;
+            var mgr = new ERPManager(instanceName);
+
+            // Own capital
+            mgr.ownCapital = snapshot.OwnCapital;
+            mgr.ownCapitalSet = snapshot.OwnCapitalSet;
+
+            // Article types
+            var typeById = new Dictionary<int, ArticleType>();
+            foreach (var t in snapshot.ArticleTypes)
+            {
+                var at = new ArticleType(t.Id, t.Name);
+                typeById[t.Id] = at;
+                mgr.articleTypes.Add(at);
+            }
+
+            // Articles
+            var articleById = new Dictionary<int, Article>();
+            foreach (var a in snapshot.Articles)
+            {
+                if (!typeById.TryGetValue(a.TypeId, out var at))
+                {
+                    Console.WriteLine($"[WARN] Unknown ArticleTypeId {a.TypeId} for Article {a.Id}. Skipping.");
+                    continue;
+                }
+                var art = new Article(a.Id, at, a.Stock);
+                articleById[a.Id] = art;
+                mgr.articles.Add(art);
+            }
+
+            // Storage slots
+            foreach (var s in snapshot.StorageSlots)
+            {
+                var fill = new List<Article>();
+                foreach (var aid in s.FillArticleIds)
+                {
+                    if (articleById.TryGetValue(aid, out var art))
+                        fill.Add(art);
+                    else
+                        Console.WriteLine($"[WARN] Unknown ArticleId {aid} in StorageSlot {s.Id}.");
+                }
+                mgr.storageSlots.Add(new StorageSlot(s.Id, fill));
+            }
+
+            // Sections
+            var sectionById = new Dictionary<int, Section>();
+            foreach (var s in snapshot.Sections)
+            {
+                var sec = new Section(s.Id, s.Name);
+                sectionById[s.Id] = sec;
+                mgr.sections.Add(sec);
+            }
+
+            // Customers
+            var customerById = new Dictionary<int, Customer>();
+            foreach (var c in snapshot.Customers)
+            {
+                var cust = new Customer(c.Id, c.Name);
+                customerById[c.Id] = cust;
+                mgr.customers.Add(cust);
+            }
+
+            // Employees
+            foreach (var e in snapshot.Employees)
+            {
+                if (!sectionById.TryGetValue(e.WorksInSectionId, out var sec))
+                {
+                    Console.WriteLine($"[WARN] Unknown SectionId {e.WorksInSectionId} for Employee {e.Id}. Skipping.");
+                    continue;
+                }
+                var emp = new Employee(e.Id, e.Name, sec);
+                mgr.employees.Add(emp);
+            }
+
+            // Orders
+            var orderById = new Dictionary<int, Order>();
+            foreach (var o in snapshot.Orders)
+            {
+                if (!customerById.TryGetValue(o.CustomerId, out var cust))
+                {
+                    Console.WriteLine($"[WARN] Unknown CustomerId {o.CustomerId} for Order {o.Id}. Skipping.");
+                    continue;
+                }
+                var items = new List<OrderItem>();
+                foreach (var oi in o.Articles)
+                {
+                    if (!typeById.TryGetValue(oi.TypeId, out var at))
+                    {
+                        Console.WriteLine($"[WARN] Unknown ArticleTypeId {oi.TypeId} for OrderItem {oi.Id}.");
+                        continue;
+                    }
+                    items.Add(new OrderItem(oi.Id, at, oi.Stock));
+                }
+                var order = new Order(o.Id, items, cust);
+                if (Enum.TryParse<OrderStatus>(o.Status, out var st))
+                    order.Status = st;
+                mgr.orders.Add(order);
+                orderById[o.Id] = order;
+            }
+
+            // SelfOrders
+            foreach (var so in snapshot.SelfOrders)
+            {
+                var items = new List<OrderItem>();
+                foreach (var oi in so.Articles)
+                {
+                    if (!typeById.TryGetValue(oi.TypeId, out var at))
+                    {
+                        Console.WriteLine($"[WARN] Unknown ArticleTypeId {oi.TypeId} for SelfOrderItem {oi.Id}.");
+                        continue;
+                    }
+                    items.Add(new OrderItem(oi.Id, at, oi.Stock));
+                }
+                var selfOrder = new SelfOrder(so.Id, items);
+                if (Enum.TryParse<OrderStatus>(so.Status, out var st))
+                    selfOrder.Status = st;
+                foreach (var ai in so.Arrived)
+                {
+                    if (!typeById.TryGetValue(ai.TypeId, out var at))
+                    {
+                        Console.WriteLine($"[WARN] Unknown ArticleTypeId {ai.TypeId} for ArrivedItem {ai.Id}.");
+                        continue;
+                    }
+                    selfOrder.Arrived.Add(new OrderItem(ai.Id, at, ai.Stock));
+                }
+                mgr.selfOrders.Add(selfOrder);
+            }
+
+            // Prices
+            foreach (var p in snapshot.Prices)
+            {
+                var dict = new Dictionary<ArticleType, double>();
+                foreach (var kvp in p.PriceListByTypeId)
+                {
+                    if (typeById.TryGetValue(kvp.Key, out var at))
+                        dict[at] = kvp.Value;
+                    else
+                        Console.WriteLine($"[WARN] Unknown ArticleTypeId {kvp.Key} in Prices {p.Id}.");
+                }
+                mgr.prices.Add(new Prices(p.Id, dict));
+            }
+
+            // Bills
+            foreach (var b in snapshot.Bills)
+            {
+                if (!orderById.TryGetValue(b.OrderId, out var ord))
+                {
+                    Console.WriteLine($"[WARN] Unknown OrderId {b.OrderId} for Bill {b.Id}. Skipping.");
+                    continue;
+                }
+                if (!customerById.TryGetValue(b.CustomerId, out var cust))
+                {
+                    Console.WriteLine($"[WARN] Unknown CustomerId {b.CustomerId} for Bill {b.Id}. Skipping.");
+                    continue;
+                }
+                var bill = new Bill(b.Id, b.TotalPrice, ord) { Customer = cust };
+                mgr.bills.Add(bill);
+            }
+
+            // Payment terms
+            foreach (var pt in snapshot.PaymentTerms)
+            {
+                var terms = new PaymentTerms(pt.Id, pt.Name, pt.DaysUntilDue, pt.AbsolutePenalty, pt.DiscountDays, pt.DiscountPercent, pt.PenaltyRate);
+                mgr.paymentTerms.Add(terms);
+            }
+
+            // Wanted stock
+            mgr.wantedStock.Clear();
+            foreach (var kvp in snapshot.WantedStockByTypeId)
+            {
+                if (typeById.TryGetValue(kvp.Key, out var at))
+                    mgr.wantedStock[at] = kvp.Value;
+            }
+
+            // Last IDs
+            if (snapshot.LastIds != null)
+            {
+                mgr.lastStockId = snapshot.LastIds.LastStockId;
+                mgr.lastSlotId = snapshot.LastIds.LastSlotId;
+                mgr.lastArticleTypeId = snapshot.LastIds.LastArticleTypeId;
+                mgr.lastOrderId = snapshot.LastIds.LastOrderId;
+                mgr.lastSelfOrderId = snapshot.LastIds.LastSelfOrderId;
+                mgr.lastPricesId = snapshot.LastIds.LastPricesId;
+                mgr.lastBillId = snapshot.LastIds.LastBillId;
+                mgr.lastPaymentTermsId = snapshot.LastIds.LastPaymentTermsId;
+                mgr.lastSectionId = snapshot.LastIds.LastSectionId;
+                mgr.lastEmployeeId = snapshot.LastIds.LastEmployeeId;
+                mgr.lastCustomerId = snapshot.LastIds.LastCustomerId;
+                lastOrderItemId = snapshot.LastIds.LastOrderItemId;
+            }
+
+            return mgr;
+        }
+
+        private static string MakeFileSafe(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sb = new StringBuilder(name.Trim());
+            foreach (var ch in invalid)
+                sb.Replace(ch.ToString(), "");
+            // Replace spaces with '-'
+            return sb.ToString().Replace(' ', '-');
+        }
+
+        private ERPInstanceSnapshot BuildSnapshot()
+        {
+            // Maps for quick lookups
+            var articleTypeIds = articleTypes.ToDictionary(t => t, t => t.Id);
+            var articlesById = articles.ToDictionary(a => a.Id);
+
+            // DTO conversions
+            var dtoArticleTypes = articleTypes.Select(t => new DTO_ArticleType
+            {
+                Id = t.Id,
+                Name = t.Name
+            }).ToList();
+
+            var dtoArticles = articles.Select(a => new DTO_Article
+            {
+                Id = a.Id,
+                TypeId = a.Type.Id,
+                Stock = a.Stock
+            }).ToList();
+
+            var dtoSlots = storageSlots.Select(s => new DTO_StorageSlot
+            {
+                Id = s.Id,
+                FillArticleIds = s.Fill.Select(x => x.Id).ToList()
+            }).ToList();
+
+            DTO_OrderItem ToDtoOrderItem(OrderItem oi) => new DTO_OrderItem
+            {
+                Id = oi.Id,
+                TypeId = oi.Type.Id,
+                Stock = oi.Stock
+            };
+
+            var dtoOrders = orders.Select(o => new DTO_Order
+            {
+                Id = o.Id,
+                CustomerId = o.Customer.Id,
+                Status = o.Status.ToString(),
+                Articles = o.Articles.Select(ToDtoOrderItem).ToList()
+            }).ToList();
+
+            var dtoSelfOrders = selfOrders.Select(so => new DTO_SelfOrder
+            {
+                Id = so.Id,
+                Status = so.Status.ToString(),
+                Articles = so.Articles.Select(ToDtoOrderItem).ToList(),
+                Arrived = so.Arrived.Select(ToDtoOrderItem).ToList()
+            }).ToList();
+
+            var dtoPrices = prices.Select(p => new DTO_Prices
+            {
+                Id = p.Id,
+                PriceListByTypeId = p.PriceList.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value)
+            }).ToList();
+
+            var dtoBills = bills.Select(b => new DTO_Bill
+            {
+                Id = b.Id,
+                TotalPrice = b.TotalPrice,
+                OrderId = b.Order.Id,
+                CustomerId = b.Customer.Id
+            }).ToList();
+
+            var dtoPaymentTerms = paymentTerms.Select(pt => new DTO_PaymentTerms
+            {
+                Id = pt.Id,
+                Name = pt.Name,
+                DaysUntilDue = pt.DaysUntilDue,
+                DiscountDays = pt.DiscountDays,
+                DiscountPercent = pt.DiscountPercent,
+                PenaltyRate = pt.PenaltyRate,
+                AbsolutePenalty = pt.AbsolutePenalty,
+                UsingPenaltyRate = pt.UsingPenaltyRate
+            }).ToList();
+
+            var dtoSections = sections.Select(s => new DTO_Section
+            {
+                Id = s.Id,
+                Name = s.Name
+            }).ToList();
+
+            var dtoEmployees = employees.Select(e => new DTO_Employee
+            {
+                Id = e.Id,
+                Name = e.Name ?? string.Empty,
+                WorksInSectionId = e.worksIn.Id
+            }).ToList();
+
+            var dtoCustomers = customers.Select(c => new DTO_Customer
+            {
+                Id = c.Id,
+                Name = c.Name ?? string.Empty
+            }).ToList();
+
+            var dtoWantedStock = wantedStock.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value);
+
+            return new ERPInstanceSnapshot
+            {
+                SchemaVersion = 1,
+                InstanceName = this.InstanceName,
+                FileBaseName = this.FileBaseName,
+                OwnCapital = this.ownCapital,
+                OwnCapitalSet = this.ownCapitalSet,
+                WantedStockByTypeId = dtoWantedStock,
+
+                LastIds = new DTO_LastIds
+                {
+                    LastStockId = lastStockId,
+                    LastSlotId = lastSlotId,
+                    LastArticleTypeId = lastArticleTypeId,
+                    LastOrderId = lastOrderId,
+                    LastSelfOrderId = lastSelfOrderId,
+                    LastPricesId = lastPricesId,
+                    LastBillId = lastBillId,
+                    LastPaymentTermsId = lastPaymentTermsId,
+                    LastSectionId = lastSectionId,
+                    LastEmployeeId = lastEmployeeId,
+                    LastCustomerId = lastCustomerId,
+                    LastOrderItemId = lastOrderItemId
+                },
+
+                ArticleTypes = dtoArticleTypes,
+                Articles = dtoArticles,
+                StorageSlots = dtoSlots,
+                Orders = dtoOrders,
+                SelfOrders = dtoSelfOrders,
+                Prices = dtoPrices,
+                Bills = dtoBills,
+                PaymentTerms = dtoPaymentTerms,
+                Sections = dtoSections,
+                Employees = dtoEmployees,
+                Customers = dtoCustomers
+            };
         }
 
         // jobs
@@ -952,6 +1420,63 @@ namespace ERP_Fix
             return discountPercent.HasValue ? totalAmount * (double)discountPercent : 0;
         }
     }
+
+    // =========================
+    // DTOs for .erp JSON format
+    // =========================
+    internal class ERPInstanceSnapshot
+    {
+        public int SchemaVersion { get; set; }
+        public string InstanceName { get; set; } = string.Empty;
+        public string FileBaseName { get; set; } = string.Empty;
+
+        public double OwnCapital { get; set; }
+        public bool OwnCapitalSet { get; set; }
+        public Dictionary<int, int> WantedStockByTypeId { get; set; } = new();
+
+        public DTO_LastIds LastIds { get; set; } = new DTO_LastIds();
+
+        public List<DTO_ArticleType> ArticleTypes { get; set; } = new();
+        public List<DTO_Article> Articles { get; set; } = new();
+        public List<DTO_StorageSlot> StorageSlots { get; set; } = new();
+        public List<DTO_Order> Orders { get; set; } = new();
+        public List<DTO_SelfOrder> SelfOrders { get; set; } = new();
+        public List<DTO_Prices> Prices { get; set; } = new();
+        public List<DTO_Bill> Bills { get; set; } = new();
+        public List<DTO_PaymentTerms> PaymentTerms { get; set; } = new();
+        public List<DTO_Section> Sections { get; set; } = new();
+        public List<DTO_Employee> Employees { get; set; } = new();
+        public List<DTO_Customer> Customers { get; set; } = new();
+    }
+
+    internal class DTO_LastIds
+    {
+        public int LastStockId { get; set; }
+        public int LastSlotId { get; set; }
+        public int LastArticleTypeId { get; set; }
+        public int LastOrderId { get; set; }
+        public int LastSelfOrderId { get; set; }
+        public int LastPricesId { get; set; }
+        public int LastBillId { get; set; }
+        public int LastPaymentTermsId { get; set; }
+        public int LastSectionId { get; set; }
+        public int LastEmployeeId { get; set; }
+        public int LastCustomerId { get; set; }
+        public int LastOrderItemId { get; set; }
+    }
+
+    internal class DTO_ArticleType { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
+    internal class DTO_Article { public int Id { get; set; } public int TypeId { get; set; } public int Stock { get; set; } }
+    internal class DTO_StorageSlot { public int Id { get; set; } public List<int> FillArticleIds { get; set; } = new(); }
+    internal class DTO_OrderItem { public int Id { get; set; } public int TypeId { get; set; } public int Stock { get; set; } }
+    internal class DTO_Order { public int Id { get; set; } public int CustomerId { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); }
+    internal class DTO_SelfOrder { public int Id { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); public List<DTO_OrderItem> Arrived { get; set; } = new(); }
+    internal class DTO_Prices { public int Id { get; set; } public Dictionary<int, double> PriceListByTypeId { get; set; } = new(); }
+    internal class DTO_Bill { public int Id { get; set; } public double TotalPrice { get; set; } public int OrderId { get; set; } public int CustomerId { get; set; } }
+    internal class DTO_PaymentTerms { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int DaysUntilDue { get; set; } public int? DiscountDays { get; set; } public double? DiscountPercent { get; set; } public double? PenaltyRate { get; set; } public double AbsolutePenalty { get; set; } public bool UsingPenaltyRate { get; set; } }
+    internal class DTO_Section { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
+    internal class DTO_Employee { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int WorksInSectionId { get; set; } }
+    internal class DTO_Customer { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
 
     public class Section
     {

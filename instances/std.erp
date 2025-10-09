@@ -1,0 +1,78 @@
+﻿{
+  "SchemaVersion": 1,
+  "InstanceName": "STD",
+  "FileBaseName": "std",
+  "OwnCapital": 200000,
+  "OwnCapitalSet": false,
+  "WantedStockByTypeId": {
+    "0": 1000
+  },
+  "LastIds": {
+    "LastStockId": 1,
+    "LastSlotId": -1,
+    "LastArticleTypeId": 1,
+    "LastOrderId": -1,
+    "LastSelfOrderId": 0,
+    "LastPricesId": -1,
+    "LastBillId": -1,
+    "LastPaymentTermsId": -1,
+    "LastSectionId": -1,
+    "LastEmployeeId": -1,
+    "LastCustomerId": -1,
+    "LastOrderItemId": 868439
+  },
+  "ArticleTypes": [
+    {
+      "Id": 0,
+      "Name": "Boot"
+    },
+    {
+      "Id": 1,
+      "Name": "Hat"
+    }
+  ],
+  "Articles": [
+    {
+      "Id": 0,
+      "TypeId": 0,
+      "Stock": 100
+    },
+    {
+      "Id": 1,
+      "TypeId": 1,
+      "Stock": 40
+    }
+  ],
+  "StorageSlots": [],
+  "Orders": [],
+  "SelfOrders": [
+    {
+      "Id": 0,
+      "Status": "Completed",
+      "Articles": [],
+      "Arrived": [
+        {
+          "Id": 868437,
+          "TypeId": 0,
+          "Stock": 200
+        },
+        {
+          "Id": 868438,
+          "TypeId": 1,
+          "Stock": 60
+        },
+        {
+          "Id": 868439,
+          "TypeId": 0,
+          "Stock": 700
+        }
+      ]
+    }
+  ],
+  "Prices": [],
+  "Bills": [],
+  "PaymentTerms": [],
+  "Sections": [],
+  "Employees": [],
+  "Customers": []
+}

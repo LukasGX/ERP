@@ -573,14 +573,12 @@ namespace ERP_Fix
                 if (command == null || command == "")
                 {
                     ShellAssistance.Error("Enter a valid command");
-                    continue;
                 }
-
-                if (command.StartsWith("help"))
+                else if (command.StartsWith("help"))
                 {
                     HelpMenu();
                 }
-                if (command.StartsWith("create"))
+                else if (command.StartsWith("create"))
                 {
                     bool preChoice = false;
                     string? choiceStr = "";
