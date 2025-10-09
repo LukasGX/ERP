@@ -1,4 +1,5 @@
 using System;
+using System.Linq.Expressions;
 using ERP_Fix;
 using Terminal.Gui;
 
@@ -7,6 +8,7 @@ namespace ERP_Fix {
     class TUI
     {
         public ERPManager erpManager;
+        public Object WorkingWith;
 
         public void Start()
         {
@@ -94,8 +96,9 @@ namespace ERP_Fix {
                         Y = 3,
                         ColorScheme = schemes[2]
                     };
-                    buttonCreate.Clicked += () =>
-                    {
+                    Action buttonCreateClick = null;
+
+                    buttonCreateClick = () => {
                         win.RemoveAll();
                         var headerLabel = new Label($"ERP - {erpManager.InstanceName}")
                         {
@@ -105,13 +108,63 @@ namespace ERP_Fix {
                         };
                         win.Add(headerLabel);
 
+                        Action DoAfter = () =>
+                        {
+                            win.RemoveAll();
+                            var headerLabel = new Label($"ERP - {inputText ?? "unnamed"}")
+                            {
+                                X = 2,
+                                Y = 1,
+                                ColorScheme = schemes[1]
+                            };
+                            win.Add(headerLabel);
+
+                            var buttonCreate = new Button("Element erstellen")
+                            {
+                                X = 2,
+                                Y = 3,
+                                ColorScheme = schemes[2]
+                            };
+                            buttonCreate.Clicked += buttonCreateClick;
+                            win.Add(buttonCreate);
+
+                            win.SetFocus();
+                            win.Height = 7;
+                            win.Width = 80;
+
+                            Application.Top.SetNeedsDisplay();
+                        };
+
+                        Dictionary<string, Action> buttons = new()
+                        {
+                            { "Artikeltyp", () => { CreateArticleType(win, schemes, DoAfter); } }
+                        };
+                        int posY = 3;
+
+                        foreach (KeyValuePair<string, Action> kvp in buttons)
+                        {
+                            var button = new Button(kvp.Key)
+                            {
+                                X = 2,
+                                Y = posY,
+                                ColorScheme = schemes[2]
+                            };
+                            button.Clicked += () => { kvp.Value.Invoke(); };
+                            win.Add(button);
+
+                            posY += 2;
+                        }
+
+                        win.Height = 17;
+
                         Application.Top.SetNeedsDisplay();
                     };
+                    buttonCreate.Clicked += buttonCreateClick;
                     win.Add(buttonCreate);
 
                     win.SetFocus();
                     win.Height = 7;
-                    win.Width = 30;
+                    win.Width = 80;
 
                     Application.Top.SetNeedsDisplay();
                 };
@@ -174,6 +227,74 @@ namespace ERP_Fix {
             };
 
             return [scheme0, scheme1, scheme2, scheme3];
+        }
+
+        // creation button click
+        private void CreateArticleType(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var headerLabel = new Label($"ERP - {erpManager.InstanceName}")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(headerLabel);
+
+            var appellLabel = new Label("Name des Artikeltypen:")
+            {
+                X = 2,
+                Y = 3,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var nameInput = new TextField()
+            {
+                X = 2,
+                Y = 4,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            nameInput.KeyDown += (e) =>
+            {
+                if (e.KeyEvent.Key == Key.Enter)
+                {
+                    if (string.IsNullOrEmpty(nameInput.Text.ToString()))
+                    {
+                        doAfter.Invoke();
+                    }
+
+                    win.Remove(appellLabel);
+                    win.Remove(nameInput);
+
+                    ArticleType? articleType = erpManager.NewArticleType(nameInput.Text.ToString());
+
+                    var finishedText = new Label("Der Artikeltyp wurde erstellt.")
+                    {
+                        X = 2,
+                        Y = 3,
+                        ColorScheme = schemes[3]
+                    };
+                    win.Add(finishedText);
+
+                    var okButton = new Button("Ok")
+                    {
+                        X = 2,
+                        Y = 5,
+                        ColorScheme = schemes[2]
+                    };
+                    okButton.Clicked += () =>
+                    {
+                        doAfter.Invoke();
+                    };
+                    win.Add(okButton);
+                }
+            };
+            win.Add(nameInput);
+
+            Application.Top.SetNeedsDisplay();
         }
     }
 }
