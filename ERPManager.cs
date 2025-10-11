@@ -726,49 +726,93 @@ namespace ERP_Fix
         {
             return articles.Count;
         }
+        public List<Article> GetAllArticles()
+        {
+            return articles;
+        }
         public int GetArticleTypeCount()
         {
             return articleTypes.Count;
+        }
+        public List<ArticleType> GetAllArticleTypes()
+        {
+            return articleTypes;
         }
         public int GetStorageSlotCount()
         {
             return storageSlots.Count;
         }
+        public List<StorageSlot> GetAllStorageSlots()
+        {
+            return storageSlots;
+        }
         public int GetOrderCount()
         {
             return orders.Count;
+        }
+        public List<Order> GetAllOrders()
+        {
+            return orders;
         }
         public int GetSelfOrderCount()
         {
             return selfOrders.Count;
         }
+        public List<SelfOrder> GetAllSelfOrders()
+        {
+            return selfOrders;
+        }
         public int GetPricesCount()
         {
             return prices.Count;
+        }
+        public List<Prices> GetAllPrices()
+        {
+            return prices;
         }
         public int GetBillCount()
         {
             return bills.Count;
         }
+        public List<Bill> GetAllBills()
+        {
+            return bills;
+        }
         public int GetPaymentTermsCount()
         {
             return paymentTerms.Count;
+        }
+        public List<PaymentTerms> GetAllPaymentTerms()
+        {
+            return paymentTerms;
         }
         public int GetSectionCount()
         {
             return sections.Count;
         }
+        public List<Section> GetAllSections()
+        {
+            return sections;
+        }
         public int GetEmployeeCount()
         {
             return employees.Count;
+        }
+        public List<Employee> GetAllEmployees()
+        {
+            return employees;
         }
         public int GetCustomerCount()
         {
             return customers.Count;
         }
+        public List<Customer> GetAllCustomers()
+        {
+            return customers;
+        }
 
         // Warehousing
-        private Article? FindArticle(int id)
+        public Article? FindArticle(int id)
         {
             return articles.FirstOrDefault(a => a.Id == id);
         }
@@ -778,7 +822,7 @@ namespace ERP_Fix
             return articles.Where(article => article.Type == type).ToList();
         }
 
-        private ArticleType? FindArticleType(int id)
+        public ArticleType? FindArticleType(int id)
         {
             return articleTypes.FirstOrDefault(t => t.Id == id);
         }

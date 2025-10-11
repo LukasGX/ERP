@@ -9,7 +9,7 @@
   },
   "LastIds": {
     "LastStockId": 1,
-    "LastSlotId": -1,
+    "LastSlotId": 0,
     "LastArticleTypeId": 1,
     "LastOrderId": -1,
     "LastSelfOrderId": 0,
@@ -43,7 +43,11 @@
       "Stock": 40
     }
   ],
-  "StorageSlots": [],
+  "StorageSlots": [
+    {
+      "Id": 0
+    }
+  ],
   "Orders": [],
   "SelfOrders": [
     {

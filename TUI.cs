@@ -10,8 +10,8 @@ using Terminal.Gui;
 namespace ERP_Fix {
     class TUI
     {
-    public ERPManager? erpManager;
-    public Object? WorkingWith;
+        public ERPManager? erpManager;
+        Dictionary<string, Window> windows = new();
 
         public void Start()
         {
@@ -101,7 +101,15 @@ namespace ERP_Fix {
                 HotFocus = Application.Driver.MakeAttribute(Color.Green, Color.Black)
             };
 
-            return [scheme0, scheme1, scheme2, scheme3];
+            var scheme4 = new ColorScheme
+            {
+                Normal = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black),
+                Focus = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black),
+                HotNormal = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black),
+                HotFocus = Application.Driver.MakeAttribute(Color.DarkGray, Color.Black)
+            };
+
+            return [scheme0, scheme1, scheme2, scheme3, scheme4];
         }
 
         private void newInstanceMenu(Window win, List<ColorScheme> schemes)
@@ -368,93 +376,292 @@ namespace ERP_Fix {
         private void InInstanceMenu(Window win, List<ColorScheme> schemes, TextField newInstanceNameTextField)
         {
             var inputText = newInstanceNameTextField.Text.ToString();
-            erpManager = new ERPManager(inputText ?? "unnamed");
-            win.RemoveAll();
+            // If we're creating a new instance, erpManager will be null; opening existing sets it beforehand
+            if (erpManager == null)
+            {
+                erpManager = new ERPManager(inputText ?? "unnamed");
+            }
 
-            var headerLabel = new Label($"ERP - {inputText ?? "unnamed"}")
+            // main window
+            win.RemoveAll();
+            var instanceTitle = erpManager!.InstanceName ?? (inputText ?? "unnamed");
+            win.Title = $"ERP - {instanceTitle}";
+
+            // Removed header label showing "ERP - <instance name>"
+
+            var buttonCreate = new Button("Element erstellen")
             {
                 X = 2,
                 Y = 1,
-                ColorScheme = schemes[1]
+                ColorScheme = schemes[2]
             };
-            win.Add(headerLabel);
 
-            var buttonCreate = new Button("Element erstellen")
+            var buttonRestockArticle = new Button("Artikel auffüllen")
             {
                 X = 2,
                 Y = 3,
                 ColorScheme = schemes[2]
             };
             Action? buttonCreateClick = null;
+            Action? buttonRestockArticleClick = null;
 
-            buttonCreateClick = () =>
+            Action DoAfter = () =>
             {
                 win.RemoveAll();
-                var headerLabel = new Label($"ERP - {erpManager!.InstanceName}")
+                win.Title = $"ERP - {erpManager!.InstanceName}";
+                // Removed header label showing "ERP - <instance name>"
+
+                var buttonCreate = new Button("Element erstellen")
                 {
                     X = 2,
                     Y = 1,
-                    ColorScheme = schemes[1]
+                    ColorScheme = schemes[2]
                 };
-                win.Add(headerLabel);
+                buttonCreate.Clicked += buttonCreateClick!;
+                win.Add(buttonCreate);
 
-                Action DoAfter = () =>
+                var buttonRestockArticle = new Button("Artikel auffüllen")
                 {
-                    win.RemoveAll();
-                    var headerLabel = new Label($"ERP - {inputText ?? "unnamed"}")
-                    {
-                        X = 2,
-                        Y = 1,
-                        ColorScheme = schemes[1]
-                    };
-                    win.Add(headerLabel);
-
-                    var buttonCreate = new Button("Element erstellen")
-                    {
-                        X = 2,
-                        Y = 3,
-                        ColorScheme = schemes[2]
-                    };
-                    buttonCreate.Clicked += buttonCreateClick!;
-                    win.Add(buttonCreate);
-
-                    win.SetFocus();
-                    win.Height = 7;
-                    win.Width = 80;
-
-                    Application.Top.SetNeedsDisplay();
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
                 };
+                buttonRestockArticle.Clicked += buttonRestockArticleClick;
+                win.Add(buttonRestockArticle);
 
-                Dictionary<string, Action> buttons = new()
-                    {
-                        { "Artikeltyp", () => { CreateArticleType(win, schemes, DoAfter); } }
-                    };
-                int posY = 3;
+                fillAllWindows();
+                resizeAllWindowsWidth();
 
-                foreach (KeyValuePair<string, Action> kvp in buttons)
-                {
-                    var button = new Button(kvp.Key)
-                    {
-                        X = 2,
-                        Y = posY,
-                        ColorScheme = schemes[2]
-                    };
-                    button.Clicked += () => { kvp.Value.Invoke(); };
-                    win.Add(button);
-
-                    posY += 2;
-                }
-
-                win.Height = 17;
+                win.SetFocus();
+                win.Width = 60;
 
                 Application.Top.SetNeedsDisplay();
             };
-            buttonCreate.Clicked += buttonCreateClick!;
+
+            buttonCreateClick = () => { CreatingElementMenu(win, schemes, DoAfter); };
+            buttonRestockArticleClick = () => { RestockArticle(win, schemes, DoAfter); };
+
+            buttonCreate.Clicked += buttonCreateClick;
             win.Add(buttonCreate);
 
+            buttonRestockArticle.Clicked += buttonRestockArticleClick;
+            win.Add(buttonRestockArticle);
+
             win.SetFocus();
-            win.Height = 7;
-            win.Width = 80;
+            win.Width = 60;
+
+            // articleType window
+            var articleTypeWin = new Window("Artikeltypen")
+            {
+                X = 62,
+                Y = 1,
+                Width = 40,
+                Height = 7,
+                ColorScheme = schemes[0]
+            };
+            Application.Top.Add(articleTypeWin);
+            windows["articleType"] = articleTypeWin;
+
+            // storageSlot window
+            var storageSlotWin = new Window("Lagerplätze")
+            {
+                X = 104,
+                Y = 1,
+                Width = 40,
+                Height = 7
+            };
+            storageSlotWin.ColorScheme = schemes[0];
+            Application.Top.Add(storageSlotWin);
+            windows["storageSlot"] = storageSlotWin;
+
+            // article window
+            var articleWin = new Window("Artikel")
+            {
+                X = 146,
+                Y = 1,
+                Width = 40,
+                Height = 7
+            };
+            articleWin.ColorScheme = schemes[0];
+            Application.Top.Add(articleWin);
+            windows["article"] = articleWin;
+
+            fillAllWindows();
+            resizeAllWindowsWidth();
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void resizeAllWindowsWidth()
+        {
+            if (windows == null || windows.Count == 0) return;
+
+            static int CalcRequiredWidth(Window win)
+            {
+                int maxContentEndX = 0;
+
+                var titleLen = (win.Title?.ToString() ?? string.Empty).Length;
+                void Visit(View parent, int offsetX)
+                {
+                    foreach (var child in parent.Subviews)
+                    {
+                        var r = child.Frame;
+                        int w = r.Width;
+
+                        if (w <= 0 && child is Label lbl)
+                        {
+                            w = (lbl.Text?.ToString() ?? string.Empty).Length;
+                        }
+
+                        int endX = offsetX + r.X + w;
+                        if (endX > maxContentEndX)
+                            maxContentEndX = endX;
+
+                        // Recurse
+                        if (child.Subviews != null && child.Subviews.Count > 0)
+                        {
+                            Visit(child, offsetX + r.X);
+                        }
+                    }
+                }
+
+                Visit(win, 0);
+
+                int contentNeeded = Math.Max(maxContentEndX + 2, titleLen + 2);
+                int fullWidthNeeded = contentNeeded + 1;
+
+                return fullWidthNeeded;
+            }
+
+            var ordered = windows
+                .Select(kvp => kvp.Value)
+                .OrderBy(w => w.Frame.X)
+                .ToList();
+
+            foreach (var w in ordered)
+            {
+                int required = CalcRequiredWidth(w);
+
+                int consoleCols = Application.Driver?.Cols ?? int.MaxValue;
+                int maxAvailable = consoleCols - w.Frame.X - 1;
+                if (maxAvailable > 0)
+                {
+                    w.Width = Math.Min(required, maxAvailable);
+                }
+                else
+                {
+                    w.Width = required;
+                }
+            }
+
+            if (ordered.Count > 0)
+            {
+                int nextX = ordered[0].Frame.X;
+                foreach (var w in ordered)
+                {
+                    w.X = nextX;
+                    nextX += w.Frame.Width + 2;
+                }
+            }
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void fillAllWindows()
+        {
+            fillArticleTypeWindow(windows["articleType"], Schemes());
+            fillStorageSlotWindow(windows["storageSlot"], Schemes());
+            fillArticleWindow(windows["article"], Schemes());
+        }
+
+        private void fillArticleTypeWindow(Window articleTypeWin, List<ColorScheme> schemes)
+        {
+            articleTypeWin.RemoveAll();
+
+            var articleTypes = erpManager!.GetAllArticleTypes();
+            foreach (ArticleType at in articleTypes)
+            {
+                var nameLabel = new Label(at.Name)
+                {
+                    X = 2,
+                    Y = 1 + articleTypes.IndexOf(at),
+                    ColorScheme = schemes[1]
+                };
+                articleTypeWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {at.Id})")
+                {
+                    X = intend,
+                    Y = 1 + articleTypes.IndexOf(at),
+                    ColorScheme = schemes[4]
+                };
+                articleTypeWin.Add(extraInfoLabel);
+            }
+
+            articleTypeWin.Height = 4 + articleTypes.Count;
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void fillStorageSlotWindow(Window storageSlotWin, List<ColorScheme> schemes)
+        {
+            storageSlotWin.RemoveAll();
+
+            var storageSlots = erpManager!.GetAllStorageSlots();
+            foreach (StorageSlot ss in storageSlots)
+            {
+                var nameLabel = new Label($"Lagerplatz")
+                {
+                    X = 2,
+                    Y = 1 + storageSlots.IndexOf(ss),
+                    ColorScheme = schemes[1]
+                };
+                storageSlotWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {ss.Id})")
+                {
+                    X = intend,
+                    Y = 1 + storageSlots.IndexOf(ss),
+                    ColorScheme = schemes[4]
+                };
+                storageSlotWin.Add(extraInfoLabel);
+            }
+
+            storageSlotWin.Height = 4 + storageSlots.Count;
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void fillArticleWindow(Window articleWin, List<ColorScheme> schemes)
+        {
+            articleWin.RemoveAll();
+
+            var articles = erpManager!.GetAllArticles();
+            foreach (Article a in articles)
+            {
+                var nameLabel = new Label($"{a.Type.Name}")
+                {
+                    X = 2,
+                    Y = 1 + articles.IndexOf(a),
+                    ColorScheme = schemes[1]
+                };
+                articleWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {a.Id}, Bestand: {a.Stock})")
+                {
+                    X = intend,
+                    Y = 1 + articles.IndexOf(a),
+                    ColorScheme = schemes[4]
+                };
+                articleWin.Add(extraInfoLabel);
+            }
+
+            articleWin.Height = 4 + articles.Count;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -464,18 +671,12 @@ namespace ERP_Fix {
         {
             win.RemoveAll();
 
-            var headerLabel = new Label($"ERP - {erpManager!.InstanceName}")
-            {
-                X = 2,
-                Y = 1,
-                ColorScheme = schemes[1]
-            };
-            win.Add(headerLabel);
+            // Removed header label showing "ERP - <instance name>"
 
             var appellLabel = new Label("Name des Artikeltypen:")
             {
                 X = 2,
-                Y = 3,
+                Y = 1,
                 ColorScheme = schemes[1]
             };
             win.Add(appellLabel);
@@ -483,7 +684,7 @@ namespace ERP_Fix {
             var nameInput = new TextField()
             {
                 X = 2,
-                Y = 4,
+                Y = 2,
                 Width = 40,
                 ColorScheme = schemes[1]
             };
@@ -492,7 +693,7 @@ namespace ERP_Fix {
             var sendButton = new Button("Ok")
             {
                 X = 2,
-                Y = 6,
+                Y = 4,
                 ColorScheme = schemes[2]
             };
             sendButton.Clicked += () =>
@@ -513,7 +714,7 @@ namespace ERP_Fix {
                 var finishedText = new Label("Der Artikeltyp wurde erstellt.")
                 {
                     X = 2,
-                    Y = 3,
+                    Y = 1,
                     ColorScheme = schemes[3]
                 };
                 win.Add(finishedText);
@@ -521,7 +722,7 @@ namespace ERP_Fix {
                 var okButton = new Button("Ok")
                 {
                     X = 2,
-                    Y = 5,
+                    Y = 3,
                     ColorScheme = schemes[2]
                 };
                 okButton.Clicked += () =>
@@ -533,6 +734,263 @@ namespace ERP_Fix {
             win.Add(sendButton);
 
             Application.Top.SetNeedsDisplay();
+        }
+        private void CreateStorageSlot(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            // Removed header label showing "ERP - <instance name>"
+
+            StorageSlot storageSlot = erpManager!.NewStorageSlot();
+
+            var finishedText = new Label("Der Lagerplatz wurde erstellt.")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[3]
+            };
+            win.Add(finishedText);
+
+            var okButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 3,
+                ColorScheme = schemes[2]
+            };
+            okButton.Clicked += () =>
+            {
+                doAfter.Invoke();
+            };
+            win.Add(okButton);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void CreateArticle(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            // Removed header label showing "ERP - <instance name>"
+
+            var appellLabel = new Label("Artikeltyp ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var typeIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(typeIdInput);
+
+            var stockLabel = new Label("Anfangsbestand:")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[1]
+            };
+            win.Add(stockLabel);
+
+            var stockInput = new TextField()
+            {
+                X = 2,
+                Y = 5,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(stockInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var typeIdText = typeIdInput.Text?.ToString() ?? string.Empty;
+                var stockText = stockInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(typeIdText) || string.IsNullOrWhiteSpace(stockText))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(typeIdText, out int typeId) || !int.TryParse(stockText, out int stock) || stock < 0)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                var at = erpManager!.FindArticleType(typeId);
+                if (at == null)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                win.Remove(appellLabel);
+                win.Remove(typeIdInput);
+                win.Remove(stockLabel);
+                win.Remove(stockInput);
+                win.Remove(sendButton);
+
+                Article article = erpManager!.NewArticle(at.Id, stock);
+
+                var finishedText = new Label("Der Artikel wurde erstellt.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void CreatingElementMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+            // Removed header label showing "ERP - <instance name>"
+
+            Dictionary<string, Action> buttons = new()
+                {
+                    { "Artikeltyp", () => { CreateArticleType(win, schemes, DoAfter); } },
+                    { "Lagerplatz", () => { CreateStorageSlot(win, schemes, DoAfter); } },
+                    { "Artikel", () => { CreateArticle(win, schemes, DoAfter); } }
+                };
+            int posY = 1;
+
+            foreach (KeyValuePair<string, Action> kvp in buttons)
+            {
+                var button = new Button(kvp.Key)
+                {
+                    X = 2,
+                    Y = posY,
+                    ColorScheme = schemes[2]
+                };
+                button.Clicked += () => { kvp.Value.Invoke(); };
+                win.Add(button);
+
+                posY += 2;
+            }
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void RestockArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var articleIdLabel = new Label("Artikel ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdLabel);
+
+            var articleIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdInput);
+
+            var amountLabel = new Label("Menge:")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[1]
+            };
+            win.Add(amountLabel);
+
+            var amountInput = new TextField()
+            {
+                X = 2,
+                Y = 5,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(amountInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var articleIdText = articleIdInput.Text?.ToString() ?? string.Empty;
+                var amountText = amountInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(articleIdText) || string.IsNullOrWhiteSpace(amountText))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(articleIdText, out int articleId) || !int.TryParse(amountText, out int amount) || amount <= 0)
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                var article = erpManager!.FindArticle(articleId);
+                if (article == null)
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                win.Remove(articleIdLabel);
+                win.Remove(articleIdInput);
+                win.Remove(amountLabel);
+                win.Remove(amountInput);
+                win.Remove(sendButton);
+
+                erpManager!.RestockArticle(article.Id, amount);
+
+                var finishedText = new Label("Der Artikel wurde aufgefüllt.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    DoAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
         }
     }
 }
