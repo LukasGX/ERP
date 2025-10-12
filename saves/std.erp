@@ -10,25 +10,29 @@
   "LastIds": {
     "LastStockId": 1,
     "LastSlotId": 0,
-    "LastArticleTypeId": 1,
+    "LastArticleTypeId": 2,
     "LastOrderId": -1,
     "LastSelfOrderId": 0,
     "LastPricesId": -1,
     "LastBillId": -1,
     "LastPaymentTermsId": -1,
-    "LastSectionId": -1,
-    "LastEmployeeId": -1,
-    "LastCustomerId": -1,
+    "LastSectionId": 0,
+    "LastEmployeeId": 0,
+    "LastCustomerId": 0,
     "LastOrderItemId": 868439
   },
   "ArticleTypes": [
     {
       "Id": 0,
-      "Name": "Boot"
+      "Name": "Schuh"
     },
     {
       "Id": 1,
-      "Name": "Hat"
+      "Name": "Hut"
+    },
+    {
+      "Id": 2,
+      "Name": "Jacke"
     }
   ],
   "Articles": [
@@ -45,7 +49,8 @@
   ],
   "StorageSlots": [
     {
-      "Id": 0
+      "Id": 0,
+      "FillArticleIds": []
     }
   ],
   "Orders": [],
@@ -76,7 +81,23 @@
   "Prices": [],
   "Bills": [],
   "PaymentTerms": [],
-  "Sections": [],
-  "Employees": [],
-  "Customers": []
+  "Sections": [
+    {
+      "Id": 0,
+      "Name": "Forschung \u0026 Entwicklung"
+    }
+  ],
+  "Employees": [
+    {
+      "Id": 0,
+      "Name": "Erika Mustermann",
+      "WorksInSectionId": 0
+    }
+  ],
+  "Customers": [
+    {
+      "Id": 0,
+      "Name": "Max Mustermann"
+    }
+  ]
 }

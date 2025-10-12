@@ -11,7 +11,13 @@ namespace ERP_Fix {
     class TUI
     {
         public ERPManager? erpManager;
+        private Window? mainWindow;
         Dictionary<string, Window> windows = new();
+        // Store default layouts for extra windows so we can restore after expanding one
+        private readonly Dictionary<string, (int X, int Y, int W, int H)> defaultLayouts = new();
+        // Navigation: cycle focus across secondary windows to access their controls via keyboard
+        private bool secondaryNavRegistered = false;
+        private readonly string[] secondaryOrder = new[] { "articleType", "storageSlot", "article", "customer", "section", "employee" };
 
         public void Start()
         {
@@ -29,6 +35,8 @@ namespace ERP_Fix {
             List<ColorScheme> schemes = Schemes();
             win.ColorScheme = schemes[0];
             top.Add(win);
+            // keep a reference to main window for focus cycling
+            mainWindow = win;
 
             var welcomeLabel = new Label("Willkommen bei meinem ERP-System")
             {
@@ -67,6 +75,69 @@ namespace ERP_Fix {
             };
 
             Application.Run();
+        }
+
+        // Global key handler to cycle focus into secondary windows so their buttons are reachable with keyboard
+        private void OnGlobalKeyDown(View.KeyEventEventArgs e)
+        {
+            if (mainWindow == null) return;
+
+            var k = e.KeyEvent.Key;
+            if (k == Key.F7)
+            {
+                FocusNextSecondaryWindow(+1);
+                e.Handled = true;
+            }
+            else if (k == Key.F6)
+            {
+                FocusNextSecondaryWindow(-1);
+                e.Handled = true;
+            }
+        }
+
+        private void RegisterSecondaryWindowNavigation()
+        {
+            if (secondaryNavRegistered) return;
+            Application.Top.KeyDown += OnGlobalKeyDown;
+            secondaryNavRegistered = true;
+        }
+
+        private void UnregisterSecondaryWindowNavigation()
+        {
+            if (!secondaryNavRegistered) return;
+            Application.Top.KeyDown -= OnGlobalKeyDown;
+            secondaryNavRegistered = false;
+        }
+
+        // Move focus to next/previous secondary window and focus its first focusable child (typically "Alle anzeigen")
+        private void FocusNextSecondaryWindow(int direction)
+        {
+            // Build list in desired cycle order: main, then visible secondary windows in fixed order
+            var existing = new List<Window>();
+            if (mainWindow != null)
+            {
+                existing.Add(mainWindow);
+            }
+            foreach (var key in secondaryOrder)
+            {
+                if (windows.TryGetValue(key, out var w) && w.Visible)
+                {
+                    existing.Add(w);
+                }
+            }
+            if (existing.Count == 0) return;
+
+            // Find which secondary window (if any) currently has focus (or contains the focus)
+            int currentIndex = existing.FindIndex(w => w.HasFocus || (w.MostFocused != null && (w.MostFocused == w || w.MostFocused.SuperView == w)));
+
+            int nextIndex = (currentIndex + direction + existing.Count) % existing.Count;
+            var target = existing[nextIndex];
+
+            // Ensure window can take focus, then focus its first focusable control
+            target.CanFocus = true;
+            target.SetFocus();
+            target.FocusFirst();
+            Application.Top.SetNeedsDisplay();
         }
 
         private List<ColorScheme> Schemes()
@@ -164,7 +235,7 @@ namespace ERP_Fix {
                 ColorScheme = schemes[1]
             };
             win.Add(openingLabel);
-            var rootDir = "./"; // @Copilot do not change this
+            var rootDir = "./";
 
             int posY = 3;
 
@@ -375,8 +446,9 @@ namespace ERP_Fix {
 
         private void InInstanceMenu(Window win, List<ColorScheme> schemes, TextField newInstanceNameTextField)
         {
+            win.Width = Dim.Sized(40);
+
             var inputText = newInstanceNameTextField.Text.ToString();
-            // If we're creating a new instance, erpManager will be null; opening existing sets it beforehand
             if (erpManager == null)
             {
                 erpManager = new ERPManager(inputText ?? "unnamed");
@@ -384,7 +456,7 @@ namespace ERP_Fix {
 
             // main window
             win.RemoveAll();
-            var instanceTitle = erpManager!.InstanceName ?? (inputText ?? "unnamed");
+            var instanceTitle = erpManager!.InstanceName ?? inputText ?? "unnamed";
             win.Title = $"ERP - {instanceTitle}";
 
             // Removed header label showing "ERP - <instance name>"
@@ -396,14 +468,47 @@ namespace ERP_Fix {
                 ColorScheme = schemes[2]
             };
 
-            var buttonRestockArticle = new Button("Artikel auffüllen")
+            var buttonArticleOps = new Button("Artikeloperationen")
             {
                 X = 2,
                 Y = 3,
                 ColorScheme = schemes[2]
             };
+
+            var buttonSave = new Button("Speichern")
+            {
+                X = 2,
+                Y = 5,
+                ColorScheme = schemes[2]
+            };
+
+            var buttonClose = new Button("Schließen")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+
+            var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
+            {
+                X = 2,
+                Y = 10,
+                ColorScheme = schemes[4]
+            };
+            win.Add(labelWindowSwitch);
+
+            var labelExitProgram = new Label("Programm beenden mit Esc")
+            {
+                X = 2,
+                Y = 11,
+                ColorScheme = schemes[4]
+            };
+            win.Add(labelExitProgram);
+
             Action? buttonCreateClick = null;
-            Action? buttonRestockArticleClick = null;
+            Action? buttonArticleOpsClick = null;
+            Action? buttonSaveClick = null;
+            Action? buttonCloseClick = null;
 
             Action DoAfter = () =>
             {
@@ -420,170 +525,187 @@ namespace ERP_Fix {
                 buttonCreate.Clicked += buttonCreateClick!;
                 win.Add(buttonCreate);
 
-                var buttonRestockArticle = new Button("Artikel auffüllen")
+                var buttonArticleOps = new Button("Artikeloperationen")
                 {
                     X = 2,
                     Y = 3,
                     ColorScheme = schemes[2]
                 };
-                buttonRestockArticle.Clicked += buttonRestockArticleClick;
-                win.Add(buttonRestockArticle);
+                buttonArticleOps.Clicked += buttonArticleOpsClick;
+                win.Add(buttonArticleOps);
+
+                var buttonSave = new Button("Speichern")
+                {
+                    X = 2,
+                    Y = 5,
+                    ColorScheme = schemes[2]
+                };
+                buttonSave.Clicked += buttonSaveClick;
+                win.Add(buttonSave);
+
+                var buttonClose = new Button("Schließen")
+                {
+                    X = 2,
+                    Y = 7,
+                    ColorScheme = schemes[2]
+                };
+                buttonClose.Clicked += buttonCloseClick;
+                win.Add(buttonClose);
+
+                var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
+                {
+                    X = 2,
+                    Y = 10,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(labelWindowSwitch);
+
+                var labelExitProgram = new Label("Programm beenden mit Esc")
+                {
+                    X = 2,
+                    Y = 11,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(labelExitProgram);
 
                 fillAllWindows();
-                resizeAllWindowsWidth();
 
                 win.SetFocus();
-                win.Width = 60;
 
                 Application.Top.SetNeedsDisplay();
             };
 
             buttonCreateClick = () => { CreatingElementMenu(win, schemes, DoAfter); };
-            buttonRestockArticleClick = () => { RestockArticle(win, schemes, DoAfter); };
+            buttonArticleOpsClick = () => { ArticleOperationsMenu(win, schemes, DoAfter); };
+            buttonCloseClick = () => { CloseInstance(win, schemes); };
+            buttonSaveClick = () => { SaveInstance(win, schemes, DoAfter); };
 
             buttonCreate.Clicked += buttonCreateClick;
             win.Add(buttonCreate);
 
-            buttonRestockArticle.Clicked += buttonRestockArticleClick;
-            win.Add(buttonRestockArticle);
+            buttonArticleOps.Clicked += buttonArticleOpsClick;
+            win.Add(buttonArticleOps);
+
+            buttonSave.Clicked += buttonSaveClick;
+            win.Add(buttonSave);
+
+            buttonClose.Clicked += buttonCloseClick;
+            win.Add(buttonClose);
 
             win.SetFocus();
-            win.Width = 60;
 
             // articleType window
             var articleTypeWin = new Window("Artikeltypen")
             {
-                X = 62,
+                X = 42,
                 Y = 1,
-                Width = 40,
+                Width = 35,
                 Height = 7,
                 ColorScheme = schemes[0]
             };
             Application.Top.Add(articleTypeWin);
             windows["articleType"] = articleTypeWin;
+            defaultLayouts["articleType"] = (42, 1, 35, 7);
 
             // storageSlot window
             var storageSlotWin = new Window("Lagerplätze")
             {
-                X = 104,
+                X = 79,
                 Y = 1,
-                Width = 40,
+                Width = 30,
                 Height = 7
             };
             storageSlotWin.ColorScheme = schemes[0];
             Application.Top.Add(storageSlotWin);
             windows["storageSlot"] = storageSlotWin;
+            defaultLayouts["storageSlot"] = (79, 1, 30, 7);
 
             // article window
             var articleWin = new Window("Artikel")
             {
-                X = 146,
+                X = 111,
                 Y = 1,
-                Width = 40,
+                Width = 55,
                 Height = 7
             };
             articleWin.ColorScheme = schemes[0];
             Application.Top.Add(articleWin);
             windows["article"] = articleWin;
+            defaultLayouts["article"] = (111, 1, 55, 7);
+
+            // customer window
+            var customerWin = new Window("Kunden")
+            {
+                X = 42,
+                Y = 12,
+                Width = 45,
+                Height = 7
+            };
+            customerWin.ColorScheme = schemes[0];
+            Application.Top.Add(customerWin);
+            windows["customer"] = customerWin;
+            defaultLayouts["customer"] = (42, 12, 45, 7);
+
+            // section window
+            var sectionWin = new Window("Abteilungen")
+            {
+                X = 89,
+                Y = 12,
+                Width = 60,
+                Height = 7
+            };
+            sectionWin.ColorScheme = schemes[0];
+            Application.Top.Add(sectionWin);
+            windows["section"] = sectionWin;
+            defaultLayouts["section"] = (89, 12, 60, 7);
+
+            // employee window
+            var employeeWin = new Window("Mitarbeiter")
+            {
+                X = 151,
+                Y = 12,
+                Width = 45,
+                Height = 7
+            };
+            employeeWin.ColorScheme = schemes[0];
+            Application.Top.Add(employeeWin);
+            windows["employee"] = employeeWin;
+            defaultLayouts["employee"] = (151, 12, 45, 7);
+
+            // Enable keyboard navigation across secondary windows (F6/Shift+F6)
+            RegisterSecondaryWindowNavigation();
 
             fillAllWindows();
-            resizeAllWindowsWidth();
-            Application.Top.SetNeedsDisplay();
-        }
-
-        private void resizeAllWindowsWidth()
-        {
-            if (windows == null || windows.Count == 0) return;
-
-            static int CalcRequiredWidth(Window win)
-            {
-                int maxContentEndX = 0;
-
-                var titleLen = (win.Title?.ToString() ?? string.Empty).Length;
-                void Visit(View parent, int offsetX)
-                {
-                    foreach (var child in parent.Subviews)
-                    {
-                        var r = child.Frame;
-                        int w = r.Width;
-
-                        if (w <= 0 && child is Label lbl)
-                        {
-                            w = (lbl.Text?.ToString() ?? string.Empty).Length;
-                        }
-
-                        int endX = offsetX + r.X + w;
-                        if (endX > maxContentEndX)
-                            maxContentEndX = endX;
-
-                        // Recurse
-                        if (child.Subviews != null && child.Subviews.Count > 0)
-                        {
-                            Visit(child, offsetX + r.X);
-                        }
-                    }
-                }
-
-                Visit(win, 0);
-
-                int contentNeeded = Math.Max(maxContentEndX + 2, titleLen + 2);
-                int fullWidthNeeded = contentNeeded + 1;
-
-                return fullWidthNeeded;
-            }
-
-            var ordered = windows
-                .Select(kvp => kvp.Value)
-                .OrderBy(w => w.Frame.X)
-                .ToList();
-
-            foreach (var w in ordered)
-            {
-                int required = CalcRequiredWidth(w);
-
-                int consoleCols = Application.Driver?.Cols ?? int.MaxValue;
-                int maxAvailable = consoleCols - w.Frame.X - 1;
-                if (maxAvailable > 0)
-                {
-                    w.Width = Math.Min(required, maxAvailable);
-                }
-                else
-                {
-                    w.Width = required;
-                }
-            }
-
-            if (ordered.Count > 0)
-            {
-                int nextX = ordered[0].Frame.X;
-                foreach (var w in ordered)
-                {
-                    w.X = nextX;
-                    nextX += w.Frame.Width + 2;
-                }
-            }
-
             Application.Top.SetNeedsDisplay();
         }
 
         private void fillAllWindows()
         {
-            fillArticleTypeWindow(windows["articleType"], Schemes());
-            fillStorageSlotWindow(windows["storageSlot"], Schemes());
-            fillArticleWindow(windows["article"], Schemes());
+            FillArticleTypeWindow(windows["articleType"], Schemes(), false);
+            FillStorageSlotWindow(windows["storageSlot"], Schemes(), false);
+            FillArticleWindow(windows["article"], Schemes(), false);
+            FillCustomerWindow(windows["customer"], Schemes(), false);
+            FillSectionWindow(windows["section"], Schemes(), false);
+            FillEmployeeWindow(windows["employee"], Schemes(), false);
         }
 
-        private void fillArticleTypeWindow(Window articleTypeWin, List<ColorScheme> schemes)
+        private void FillArticleTypeWindow(Window articleTypeWin, List<ColorScheme> schemes, bool showAll)
         {
             articleTypeWin.RemoveAll();
 
             var articleTypes = erpManager!.GetAllArticleTypes();
-            foreach (ArticleType at in articleTypes)
+            int total = articleTypes.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
             {
+                var at = articleTypes[i];
                 var nameLabel = new Label(at.Name)
                 {
                     X = 2,
-                    Y = 1 + articleTypes.IndexOf(at),
+                    Y = 1 + i,
                     ColorScheme = schemes[1]
                 };
                 articleTypeWin.Add(nameLabel);
@@ -593,28 +715,46 @@ namespace ERP_Fix {
                 var extraInfoLabel = new Label($"(ID: {at.Id})")
                 {
                     X = intend,
-                    Y = 1 + articleTypes.IndexOf(at),
+                    Y = 1 + i,
                     ColorScheme = schemes[4]
                 };
                 articleTypeWin.Add(extraInfoLabel);
             }
 
-            articleTypeWin.Height = 4 + articleTypes.Count;
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("articleType", schemes);
+                articleTypeWin.Add(showAllBtn);
+            }
+
+            articleTypeWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
 
             Application.Top.SetNeedsDisplay();
         }
 
-        private void fillStorageSlotWindow(Window storageSlotWin, List<ColorScheme> schemes)
+        private void FillStorageSlotWindow(Window storageSlotWin, List<ColorScheme> schemes, bool showAll)
         {
             storageSlotWin.RemoveAll();
 
             var storageSlots = erpManager!.GetAllStorageSlots();
-            foreach (StorageSlot ss in storageSlots)
+            int total = storageSlots.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
             {
+                var ss = storageSlots[i];
                 var nameLabel = new Label($"Lagerplatz")
                 {
                     X = 2,
-                    Y = 1 + storageSlots.IndexOf(ss),
+                    Y = 1 + i,
                     ColorScheme = schemes[1]
                 };
                 storageSlotWin.Add(nameLabel);
@@ -624,46 +764,446 @@ namespace ERP_Fix {
                 var extraInfoLabel = new Label($"(ID: {ss.Id})")
                 {
                     X = intend,
-                    Y = 1 + storageSlots.IndexOf(ss),
+                    Y = 1 + i,
                     ColorScheme = schemes[4]
                 };
                 storageSlotWin.Add(extraInfoLabel);
             }
 
-            storageSlotWin.Height = 4 + storageSlots.Count;
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("storageSlot", schemes);
+                storageSlotWin.Add(showAllBtn);
+            }
+
+            storageSlotWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
 
             Application.Top.SetNeedsDisplay();
         }
 
-        private void fillArticleWindow(Window articleWin, List<ColorScheme> schemes)
+        private void FillArticleWindow(Window articleWin, List<ColorScheme> schemes, bool showAll)
         {
             articleWin.RemoveAll();
 
             var articles = erpManager!.GetAllArticles();
-            foreach (Article a in articles)
+            int total = articles.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
             {
+                var a = articles[i];
                 var nameLabel = new Label($"{a.Type.Name}")
                 {
                     X = 2,
-                    Y = 1 + articles.IndexOf(a),
+                    Y = 1 + i,
                     ColorScheme = schemes[1]
                 };
                 articleWin.Add(nameLabel);
 
                 int intend = nameLabel.Frame.Width + 3;
 
-                var extraInfoLabel = new Label($"(ID: {a.Id}, Bestand: {a.Stock})")
+                var slot = erpManager.FindStorageSlot(a);
+                var extraInfoLabel = new Label($"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())})")
                 {
                     X = intend,
-                    Y = 1 + articles.IndexOf(a),
+                    Y = 1 + i,
                     ColorScheme = schemes[4]
                 };
                 articleWin.Add(extraInfoLabel);
             }
 
-            articleWin.Height = 4 + articles.Count;
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("article", schemes);
+                articleWin.Add(showAllBtn);
+            }
+
+            articleWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
 
             Application.Top.SetNeedsDisplay();
+        }
+
+        private void FillCustomerWindow(Window customerWin, List<ColorScheme> schemes, bool showAll)
+        {
+            customerWin.RemoveAll();
+
+            var customers = erpManager!.GetAllCustomers();
+            int total = customers.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
+            {
+                var c = customers[i];
+                var nameLabel = new Label(c.Name)
+                {
+                    X = 2,
+                    Y = 1 + i,
+                    ColorScheme = schemes[1]
+                };
+                customerWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {c.Id})")
+                {
+                    X = intend,
+                    Y = 1 + i,
+                    ColorScheme = schemes[4]
+                };
+                customerWin.Add(extraInfoLabel);
+            }
+
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("customer", schemes);
+                customerWin.Add(showAllBtn);
+            }
+
+            customerWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void FillSectionWindow(Window sectionWin, List<ColorScheme> schemes, bool showAll)
+        {
+            sectionWin.RemoveAll();
+
+            var sections = erpManager!.GetAllSections();
+            int total = sections.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
+            {
+                var s = sections[i];
+                var nameLabel = new Label(s.Name)
+                {
+                    X = 2,
+                    Y = 1 + i,
+                    ColorScheme = schemes[1]
+                };
+                sectionWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {s.Id})")
+                {
+                    X = intend,
+                    Y = 1 + i,
+                    ColorScheme = schemes[4]
+                };
+                sectionWin.Add(extraInfoLabel);
+            }
+
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("section", schemes);
+                sectionWin.Add(showAllBtn);
+            }
+
+            sectionWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void FillEmployeeWindow(Window employeeWin, List<ColorScheme> schemes, bool showAll)
+        {
+            employeeWin.RemoveAll();
+
+            var employees = erpManager!.GetAllEmployees();
+            int total = employees.Count;
+            bool useShowAllButton = !showAll && total >= 7;
+            int toShow = showAll ? total : Math.Min(6, total);
+            if (useShowAllButton) toShow = 5;
+
+            for (int i = 0; i < toShow; i++)
+            {
+                var e = employees[i];
+                var nameLabel = new Label(e.Name)
+                {
+                    X = 2,
+                    Y = 1 + i,
+                    ColorScheme = schemes[1]
+                };
+                employeeWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {e.Id}, Abt. {(e.worksIn == null ? "-" : e.worksIn.Id)})")
+                {
+                    X = intend,
+                    Y = 1 + i,
+                    ColorScheme = schemes[4]
+                };
+                employeeWin.Add(extraInfoLabel);
+            }
+
+            if (useShowAllButton)
+            {
+                var showAllBtn = new Button("Alle anzeigen")
+                {
+                    X = 2,
+                    Y = 1 + toShow,
+                    ColorScheme = schemes[2]
+                };
+                showAllBtn.Clicked += () => ExpandExtraWindow("employee", schemes);
+                employeeWin.Add(showAllBtn);
+            }
+
+            employeeWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        // Expand a specific extra window to full available space next to the main window,
+        // hide all other extra windows, and render all entries plus a "Zurück" button.
+        private void ExpandExtraWindow(string key, List<ColorScheme> schemes)
+        {
+            if (!windows.ContainsKey(key)) return;
+
+            // Hide others
+            foreach (var kv in windows)
+            {
+                if (kv.Key == key) continue;
+                try { kv.Value.Visible = false; } catch { }
+            }
+
+            var w = windows[key];
+            // Maximize selected window to the right of main window
+            w.X = 42;
+            w.Y = 1;
+            w.Width = Dim.Fill();
+            w.Height = Dim.Fill();
+
+            // Re-render full content with a back button
+            w.RemoveAll();
+
+            var backBtn = new Button("Zurück")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[2]
+            };
+            backBtn.Clicked += () => RestoreExtraWindowsLayout(schemes);
+            w.Add(backBtn);
+
+            // Render all entries starting after the back button
+            switch (key)
+            {
+                case "articleType":
+                    RenderArticleTypesFull(w, schemes, startY: 3);
+                    break;
+                case "storageSlot":
+                    RenderStorageSlotsFull(w, schemes, startY: 3);
+                    break;
+                case "article":
+                    RenderArticlesFull(w, schemes, startY: 3);
+                    break;
+                case "customer":
+                    RenderCustomersFull(w, schemes, startY: 3);
+                    break;
+                case "section":
+                    RenderSectionsFull(w, schemes, startY: 3);
+                    break;
+                case "employee":
+                    RenderEmployeesFull(w, schemes, startY: 3);
+                    break;
+            }
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void RestoreExtraWindowsLayout(List<ColorScheme> schemes)
+        {
+            // Restore sizes/positions and show all windows, then refill in capped mode
+            foreach (var kv in windows)
+            {
+                if (defaultLayouts.TryGetValue(kv.Key, out var layout))
+                {
+                    kv.Value.X = layout.X;
+                    kv.Value.Y = layout.Y;
+                    kv.Value.Width = layout.W;
+                    kv.Value.Height = layout.H;
+                }
+                try { kv.Value.Visible = true; } catch { }
+            }
+            fillAllWindows();
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        // Full render helpers (all entries, no cap), starting at specified Y
+        private void RenderArticleTypesFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var articleTypes = erpManager!.GetAllArticleTypes();
+            for (int i = 0; i < articleTypes.Count; i++)
+            {
+                var at = articleTypes[i];
+                var nameLabel = new Label(at.Name)
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var extraInfoLabel = new Label($"(ID: {at.Id})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
+        }
+
+        private void RenderStorageSlotsFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var storageSlots = erpManager!.GetAllStorageSlots();
+            for (int i = 0; i < storageSlots.Count; i++)
+            {
+                var ss = storageSlots[i];
+                var nameLabel = new Label("Lagerplatz")
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var extraInfoLabel = new Label($"(ID: {ss.Id})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
+        }
+
+        private void RenderArticlesFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var articles = erpManager!.GetAllArticles();
+            for (int i = 0; i < articles.Count; i++)
+            {
+                var a = articles[i];
+                var nameLabel = new Label($"{a.Type.Name}")
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var slot = erpManager.FindStorageSlot(a);
+                var extraInfoLabel = new Label($"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
+        }
+
+        private void RenderCustomersFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var customers = erpManager!.GetAllCustomers();
+            for (int i = 0; i < customers.Count; i++)
+            {
+                var c = customers[i];
+                var nameLabel = new Label(c.Name)
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var extraInfoLabel = new Label($"(ID: {c.Id})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
+        }
+
+        private void RenderSectionsFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var sections = erpManager!.GetAllSections();
+            for (int i = 0; i < sections.Count; i++)
+            {
+                var s = sections[i];
+                var nameLabel = new Label(s.Name)
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var extraInfoLabel = new Label($"(ID: {s.Id})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
+        }
+
+        private void RenderEmployeesFull(Window win, List<ColorScheme> schemes, int startY)
+        {
+            var employees = erpManager!.GetAllEmployees();
+            for (int i = 0; i < employees.Count; i++)
+            {
+                var e = employees[i];
+                var nameLabel = new Label(e.Name)
+                {
+                    X = 2,
+                    Y = startY + i,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(nameLabel);
+                int intend = nameLabel.Frame.Width + 3;
+                var extraInfoLabel = new Label($"(ID: {e.Id}, Abt. {(e.worksIn == null ? "-" : e.worksIn.Id)})")
+                {
+                    X = intend,
+                    Y = startY + i,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(extraInfoLabel);
+            }
         }
 
         // creation button click
@@ -733,7 +1273,7 @@ namespace ERP_Fix {
             };
             win.Add(sendButton);
 
-            Application.Top.SetNeedsDisplay();
+            Application.Top?.SetNeedsDisplay();
         }
         private void CreateStorageSlot(Window win, List<ColorScheme> schemes, Action doAfter)
         {
@@ -763,7 +1303,7 @@ namespace ERP_Fix {
             };
             win.Add(okButton);
 
-            Application.Top.SetNeedsDisplay();
+            Application.Top?.SetNeedsDisplay();
         }
 
         private void CreateArticle(Window win, List<ColorScheme> schemes, Action doAfter)
@@ -863,6 +1403,257 @@ namespace ERP_Fix {
                 win.Add(okButton);
             };
             win.Add(sendButton);
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void CreateCustomer(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var appellLabel = new Label("Name des Kunden:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var nameInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(nameInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var text = nameInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                win.Remove(appellLabel);
+                win.Remove(nameInput);
+                win.Remove(sendButton);
+
+                Customer customer = erpManager!.NewCustomer(text);
+
+                var finishedText = new Label("Der Kunde wurde erstellt.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void CreateSection(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var appellLabel = new Label("Name der Abteilung:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var nameInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(nameInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var text = nameInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                win.Remove(appellLabel);
+                win.Remove(nameInput);
+                win.Remove(sendButton);
+
+                Section section = erpManager!.NewSection(text);
+
+                var finishedText = new Label("Die Abteilung wurde erstellt.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void CreateEmployee(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var appellLabel = new Label("Name des Mitarbeiters:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var nameInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(nameInput);
+
+            var sectionIdLabel = new Label("Abteilungs ID:")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[1]
+            };
+            win.Add(sectionIdLabel);
+
+            var sectionIdInput = new TextField()
+            {
+                X = 2,
+                Y = 5,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(sectionIdInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var nameText = nameInput.Text?.ToString() ?? string.Empty;
+                var sectionIdText = sectionIdInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(nameText))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                int? sectionId = null;
+                if (!string.IsNullOrWhiteSpace(sectionIdText))
+                {
+                    if (!int.TryParse(sectionIdText, out int parsed) || parsed < 0)
+                    {
+                        doAfter.Invoke();
+                        return;
+                    }
+                    sectionId = parsed;
+                    if (erpManager!.FindSection(parsed) == null)
+                    {
+                        doAfter.Invoke();
+                        return;
+                    }
+                }
+
+                win.Remove(appellLabel);
+                win.Remove(nameInput);
+                win.Remove(sectionIdLabel);
+                win.Remove(sectionIdInput);
+                win.Remove(sendButton);
+
+                // Ensure we pass a non-null Section to NewEmployee
+                Section worksInSection;
+                if (sectionId.HasValue)
+                {
+                    worksInSection = erpManager!.FindSection(sectionId.Value)!; // validated above
+                }
+                else
+                {
+                    var unassigned = erpManager!.GetAllSections().FirstOrDefault(s => string.Equals(s.Name, "Unassigned", StringComparison.OrdinalIgnoreCase));
+                    if (unassigned == null)
+                    {
+                        unassigned = erpManager.NewSection("Unassigned");
+                    }
+                    worksInSection = unassigned;
+                }
+
+                Employee employee = erpManager!.NewEmployee(nameText, worksInSection);
+
+                var finishedText = new Label("Der Mitarbeiter wurde erstellt.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
             Application.Top.SetNeedsDisplay();
         }
 
@@ -872,11 +1663,15 @@ namespace ERP_Fix {
             // Removed header label showing "ERP - <instance name>"
 
             Dictionary<string, Action> buttons = new()
-                {
-                    { "Artikeltyp", () => { CreateArticleType(win, schemes, DoAfter); } },
-                    { "Lagerplatz", () => { CreateStorageSlot(win, schemes, DoAfter); } },
-                    { "Artikel", () => { CreateArticle(win, schemes, DoAfter); } }
-                };
+            {
+                { "Zurück", () => { DoAfter(); } },
+                { "Artikeltyp", () => { CreateArticleType(win, schemes, DoAfter); } },
+                { "Lagerplatz", () => { CreateStorageSlot(win, schemes, DoAfter); } },
+                { "Artikel", () => { CreateArticle(win, schemes, DoAfter); } },
+                { "Kunde", () => { CreateCustomer(win, schemes, DoAfter); } },
+                { "Abteilung", () => { CreateSection(win, schemes, DoAfter); } },
+                { "Mitarbeiter", () => { CreateEmployee(win, schemes, DoAfter); } },
+            };
             int posY = 1;
 
             foreach (KeyValuePair<string, Action> kvp in buttons)
@@ -887,9 +1682,38 @@ namespace ERP_Fix {
                     Y = posY,
                     ColorScheme = schemes[2]
                 };
-                button.Clicked += () => { kvp.Value.Invoke(); };
+                button.Clicked += kvp.Value.Invoke;
                 win.Add(button);
 
+                posY += 2;
+            }
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void ArticleOperationsMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var buttons = new Dictionary<string, Action>
+            {
+                { "Zurück", () => { DoAfter(); } },
+                { "Artikel auffüllen", () => { RestockArticle(win, schemes, DoAfter); } },
+                { "Artikel entnehmen", () => { WithdrawArticle(win, schemes, DoAfter); } },
+                { "Artikel einsortieren", () => { SortArticle(win, schemes, DoAfter); } }
+            };
+
+            int posY = 1;
+            foreach (var kv in buttons)
+            {
+                var btn = new Button(kv.Key)
+                {
+                    X = 2,
+                    Y = posY,
+                    ColorScheme = schemes[2]
+                };
+                btn.Clicked += () => kv.Value.Invoke();
+                win.Add(btn);
                 posY += 2;
             }
 
@@ -991,6 +1815,332 @@ namespace ERP_Fix {
                 win.Add(okButton);
             };
             win.Add(sendButton);
+        }
+
+        private void WithdrawArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var articleIdLabel = new Label("Artikel ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdLabel);
+
+            var articleIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdInput);
+
+            var amountLabel = new Label("Menge:")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[1]
+            };
+            win.Add(amountLabel);
+
+            var amountInput = new TextField()
+            {
+                X = 2,
+                Y = 5,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(amountInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var articleIdText = articleIdInput.Text?.ToString() ?? string.Empty;
+                var amountText = amountInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(articleIdText) || string.IsNullOrWhiteSpace(amountText))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(articleIdText, out int articleId) || !int.TryParse(amountText, out int amount) || amount <= 0)
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                var article = erpManager!.FindArticle(articleId);
+                if (article == null)
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                // Validate stock before withdrawing
+                if (article.Stock < amount)
+                {
+                    win.Remove(articleIdLabel);
+                    win.Remove(articleIdInput);
+                    win.Remove(amountLabel);
+                    win.Remove(amountInput);
+                    win.Remove(sendButton);
+
+                    var errorText = new Label($"Nicht genügend Bestand. Verfügbar: {article.Stock}.")
+                    {
+                        X = 2,
+                        Y = 1,
+                        ColorScheme = schemes[4]
+                    };
+                    win.Add(errorText);
+
+                    var okButtonErr = new Button("Ok")
+                    {
+                        X = 2,
+                        Y = 3,
+                        ColorScheme = schemes[2]
+                    };
+                    okButtonErr.Clicked += () => { DoAfter.Invoke(); };
+                    win.Add(okButtonErr);
+                    return;
+                }
+
+                win.Remove(articleIdLabel);
+                win.Remove(articleIdInput);
+                win.Remove(amountLabel);
+                win.Remove(amountInput);
+                win.Remove(sendButton);
+
+                erpManager!.WithdrawArticle(article.Id, amount);
+
+                var finishedText = new Label("Der Artikel wurde entnommen.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    DoAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+        }
+
+        private void SortArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var articleIdLabel = new Label("Artikel ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdLabel);
+
+            var articleIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdInput);
+
+            var slotIdLabel = new Label("Lagerplatz ID:")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[1]
+            };
+            win.Add(slotIdLabel);
+
+            var slotIdInput = new TextField()
+            {
+                X = 2,
+                Y = 5,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(slotIdInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 7,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var articleIdText = articleIdInput.Text?.ToString() ?? string.Empty;
+                var slotIdText = slotIdInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(articleIdText) || string.IsNullOrWhiteSpace(slotIdText))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(articleIdText, out int articleId) || !int.TryParse(slotIdText, out int slotId))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                var article = erpManager!.FindArticle(articleId);
+                var slot = erpManager!.GetAllStorageSlots().FirstOrDefault(s => s.Id == slotId);
+                if (article == null || slot == null)
+                {
+                    win.Remove(articleIdLabel);
+                    win.Remove(articleIdInput);
+                    win.Remove(slotIdLabel);
+                    win.Remove(slotIdInput);
+                    win.Remove(sendButton);
+
+                    string msg = article == null ? $"Artikel mit ID {articleId} nicht gefunden." : $"Lagerplatz mit ID {slotId} nicht gefunden.";
+                    var errorText = new Label(msg)
+                    {
+                        X = 2,
+                        Y = 1,
+                        ColorScheme = schemes[4]
+                    };
+                    win.Add(errorText);
+
+                    var okButtonErr = new Button("Ok")
+                    {
+                        X = 2,
+                        Y = 3,
+                        ColorScheme = schemes[2]
+                    };
+                    okButtonErr.Clicked += () => { DoAfter.Invoke(); };
+                    win.Add(okButtonErr);
+                    return;
+                }
+
+                win.Remove(articleIdLabel);
+                win.Remove(articleIdInput);
+                win.Remove(slotIdLabel);
+                win.Remove(slotIdInput);
+                win.Remove(sendButton);
+
+                erpManager!.SortArticle(article.Id, slot.Id);
+
+                var finishedText = new Label("Der Artikel wurde einsortiert.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    DoAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+        }
+
+        private void SaveInstance(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            erpManager!.SaveInstance("saves");
+
+            // Show confirmation message
+            win.RemoveAll();
+
+            var savedText = new Label("Die Instanz wurde gespeichert.")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[3]
+            };
+            win.Add(savedText);
+
+            var okButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 3,
+                ColorScheme = schemes[2]
+            };
+            okButton.Clicked += () =>
+            {
+                doAfter.Invoke();
+            };
+            win.Add(okButton);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void CloseInstance(Window win, List<ColorScheme> schemes)
+        {
+            // Remove any secondary windows we created (side panels)
+            foreach (var w in windows.Values)
+            {
+                try { Application.Top?.Remove(w); } catch { }
+            }
+            windows.Clear();
+            defaultLayouts.Clear();
+
+            // Disable secondary window navigation
+            UnregisterSecondaryWindowNavigation();
+
+            // Reset state
+            erpManager = null;
+
+            // Restore main window to the welcome screen
+            win.Title = "ERP";
+            win.Width = Dim.Fill();
+            win.RemoveAll();
+
+            var welcomeLabel = new Label("Willkommen bei meinem ERP-System")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(welcomeLabel);
+
+            var buttonNewLocal = new Button("Neue Instanz")
+            {
+                X = 2,
+                Y = 3,
+                ColorScheme = schemes[2]
+            };
+            buttonNewLocal.Clicked += () => { newInstanceMenu(win, schemes); };
+            win.Add(buttonNewLocal);
+
+            var buttonOpenLocal = new Button("Instanz öffnen")
+            {
+                X = 2,
+                Y = 5,
+                ColorScheme = schemes[2]
+            };
+            buttonOpenLocal.Clicked += () => { openInstanceMenu(win, schemes); };
+            win.Add(buttonOpenLocal);
+
+            win.SetFocus();
+            Application.Top?.SetNeedsDisplay();
         }
     }
 }

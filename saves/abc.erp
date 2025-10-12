@@ -1,0 +1,221 @@
+﻿{
+  "SchemaVersion": 1,
+  "InstanceName": "abc",
+  "FileBaseName": "abc",
+  "OwnCapital": 0,
+  "OwnCapitalSet": false,
+  "WantedStockByTypeId": {},
+  "LastIds": {
+    "LastStockId": 6,
+    "LastSlotId": 6,
+    "LastArticleTypeId": 6,
+    "LastOrderId": -1,
+    "LastSelfOrderId": -1,
+    "LastPricesId": -1,
+    "LastBillId": -1,
+    "LastPaymentTermsId": -1,
+    "LastSectionId": 6,
+    "LastEmployeeId": 1,
+    "LastCustomerId": 6,
+    "LastOrderItemId": 868439
+  },
+  "ArticleTypes": [
+    {
+      "Id": 0,
+      "Name": "a"
+    },
+    {
+      "Id": 1,
+      "Name": "b"
+    },
+    {
+      "Id": 2,
+      "Name": "c"
+    },
+    {
+      "Id": 3,
+      "Name": "d"
+    },
+    {
+      "Id": 4,
+      "Name": "e"
+    },
+    {
+      "Id": 5,
+      "Name": "f"
+    },
+    {
+      "Id": 6,
+      "Name": "g"
+    }
+  ],
+  "Articles": [
+    {
+      "Id": 0,
+      "TypeId": 0,
+      "Stock": 5
+    },
+    {
+      "Id": 1,
+      "TypeId": 1,
+      "Stock": 10
+    },
+    {
+      "Id": 2,
+      "TypeId": 2,
+      "Stock": 15
+    },
+    {
+      "Id": 3,
+      "TypeId": 3,
+      "Stock": 20
+    },
+    {
+      "Id": 4,
+      "TypeId": 4,
+      "Stock": 25
+    },
+    {
+      "Id": 5,
+      "TypeId": 5,
+      "Stock": 30
+    },
+    {
+      "Id": 6,
+      "TypeId": 6,
+      "Stock": 35
+    }
+  ],
+  "StorageSlots": [
+    {
+      "Id": 0,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 1,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 2,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 3,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 4,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 5,
+      "FillArticleIds": []
+    },
+    {
+      "Id": 6,
+      "FillArticleIds": []
+    }
+  ],
+  "Orders": [],
+  "SelfOrders": [],
+  "Prices": [],
+  "Bills": [],
+  "PaymentTerms": [],
+  "Sections": [
+    {
+      "Id": 0,
+      "Name": "Verwaltung"
+    },
+    {
+      "Id": 1,
+      "Name": "Einkauf"
+    },
+    {
+      "Id": 2,
+      "Name": "Absatz"
+    },
+    {
+      "Id": 3,
+      "Name": "Produktion"
+    },
+    {
+      "Id": 4,
+      "Name": "Forschung \u0026 Entwicklung"
+    },
+    {
+      "Id": 5,
+      "Name": "Lager"
+    },
+    {
+      "Id": 6,
+      "Name": "Ausbildung"
+    }
+  ],
+  "Employees": [
+    {
+      "Id": 0,
+      "Name": "Hans Meier",
+      "WorksInSectionId": 0
+    },
+    {
+      "Id": 1,
+      "Name": "Sabine Fischer",
+      "WorksInSectionId": 1
+    },
+    {
+      "Id": 2,
+      "Name": "J\u00FCrgen Keller",
+      "WorksInSectionId": 2
+    },
+    {
+      "Id": 3,
+      "Name": "Petra Schwarz",
+      "WorksInSectionId": 3
+    },
+    {
+      "Id": 4,
+      "Name": "Thomas Becker",
+      "WorksInSectionId": 4
+    },
+    {
+      "Id": 5,
+      "Name": "Monika Wolf",
+      "WorksInSectionId": 5
+    },
+    {
+      "Id": 1,
+      "Name": "Stefan Braun",
+      "WorksInSectionId": 6
+    }
+  ],
+  "Customers": [
+    {
+      "Id": 0,
+      "Name": "Max Mustermann"
+    },
+    {
+      "Id": 1,
+      "Name": "Erika M\u00FCller"
+    },
+    {
+      "Id": 2,
+      "Name": "Hans Schmidt"
+    },
+    {
+      "Id": 3,
+      "Name": "Clara Becker"
+    },
+    {
+      "Id": 4,
+      "Name": "Peter Wagner"
+    },
+    {
+      "Id": 5,
+      "Name": "Laura Fischer"
+    },
+    {
+      "Id": 6,
+      "Name": "Johannes Weber"
+    }
+  ]
+}

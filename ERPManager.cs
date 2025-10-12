@@ -817,6 +817,11 @@ namespace ERP_Fix
             return articles.FirstOrDefault(a => a.Id == id);
         }
 
+        public Section? FindSection(int id)
+        {
+            return sections.FirstOrDefault(s => s.Id == id);
+        }
+
         public List<Article> GetArticlesByType(ArticleType type)
         {
             return articles.Where(article => article.Type == type).ToList();
@@ -827,7 +832,7 @@ namespace ERP_Fix
             return articleTypes.FirstOrDefault(t => t.Id == id);
         }
 
-        private StorageSlot? FindStorageSlot(ArticleSimilar article)
+        public StorageSlot? FindStorageSlot(ArticleSimilar article)
         {
             return storageSlots.FirstOrDefault(slot => slot.Fill.Contains(article));
         }
