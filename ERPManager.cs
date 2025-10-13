@@ -9,6 +9,7 @@ using System.Xml.Serialization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Spire.Barcode;
 
 namespace ERP_Fix
 {
@@ -119,6 +120,9 @@ namespace ERP_Fix
         public const int WANTED_STOCK_DEFAULT = 100;
 
         public const ConsoleColor SECTION_INDICATOR_COLOR = ConsoleColor.Cyan;
+
+        // scanner ids
+        public List<long> ScannerIds = new List<long>();
 
         public void Start()
         {
@@ -379,7 +383,13 @@ namespace ERP_Fix
                     Console.WriteLine($"[WARN] Unknown ArticleTypeId {a.TypeId} for Article {a.Id}. Skipping.");
                     continue;
                 }
-                var art = new Article(a.Id, at, a.Stock);
+                // Ensure ScannerId is maintained; generate one if missing/zero for backward compatibility
+                long scannerId = a.ScannerId != 0 ? a.ScannerId : mgr.GenerateScannerId();
+                var art = new Article(a.Id, at, a.Stock, scannerId);
+                if (!mgr.ScannerIds.Contains(scannerId))
+                {
+                    mgr.ScannerIds.Add(scannerId);
+                }
                 articleById[a.Id] = art;
                 mgr.articles.Add(art);
             }
@@ -575,7 +585,8 @@ namespace ERP_Fix
             {
                 Id = a.Id,
                 TypeId = a.Type.Id,
-                Stock = a.Stock
+                Stock = a.Stock,
+                ScannerId = a.ScannerId
             }).ToList();
 
             var dtoSlots = storageSlots.Select(s => new DTO_StorageSlot
@@ -656,7 +667,7 @@ namespace ERP_Fix
 
             return new ERPInstanceSnapshot
             {
-                SchemaVersion = 1,
+                SchemaVersion = 2,
                 InstanceName = this.InstanceName,
                 FileBaseName = this.FileBaseName,
                 OwnCapital = this.ownCapital,
@@ -822,6 +833,11 @@ namespace ERP_Fix
             return sections.FirstOrDefault(s => s.Id == id);
         }
 
+        public Customer? FindCustomer(int id)
+        {
+            return customers.FirstOrDefault(c => c.Id == id);
+        }
+
         public List<Article> GetArticlesByType(ArticleType type)
         {
             return articles.Where(article => article.Type == type).ToList();
@@ -840,6 +856,21 @@ namespace ERP_Fix
         private StorageSlot? FindStorageSlotById(int id)
         {
             return storageSlots.FirstOrDefault(t => t.Id == id);
+        }
+
+        public long GenerateScannerId()
+        {
+            Random rnd = new();
+            long newId;
+
+            do
+            {
+                newId = rnd.NextInt64(100000000000000, 999999999999999);
+            } 
+            while (ScannerIds.Contains(newId));
+
+            ScannerIds.Add(newId);
+            return newId;
         }
 
         public ArticleType NewArticleType(string name)
@@ -870,7 +901,9 @@ namespace ERP_Fix
                 throw new ArgumentException($"Article type with ID {typeId} does not exist.");
             }
 
-            Article generated = new Article(lastStockId + 1, articleType, stock);
+            long scannerId = GenerateScannerId();
+
+            Article generated = new Article(lastStockId + 1, articleType, stock, scannerId);
             if (toList)
             {
                 articles.Add(generated);
@@ -1243,7 +1276,7 @@ namespace ERP_Fix
             foreach (Employee employee in employees)
             {
                 Console.WriteLine($"ID: {employee.Id}, Name: {employee.Name}, Works in: {employee.worksIn.Name}");
-                
+
             }
             Console.WriteLine("=========================");
         }
@@ -1271,8 +1304,14 @@ namespace ERP_Fix
             Console.WriteLine("=========================");
         }
     }
+    
+    // superior class
+    public class ERPItem
+    {
+        
+    }
 
-    public class ArticleSimilar
+    public class ArticleSimilar : ERPItem
     {
 
     }
@@ -1280,18 +1319,34 @@ namespace ERP_Fix
     public class Article : ArticleSimilar
     {
         public int Id { get; }
+        public long ScannerId { get; set; }
         public ArticleType Type { get; }
         public int Stock { get; set; }
 
-        public Article(int id, ArticleType type, int stock)
+        public Article(int id, ArticleType type, int stock, long scannerId)
         {
             Id = id;
             Type = type;
             Stock = stock;
+            ScannerId = scannerId;
+        }
+
+        public string GenerateBarCode()
+        {
+            string name = Type.Name + "-" + ScannerId + ".png";
+
+            BarcodeSettings bs = new BarcodeSettings();
+            bs.Type = BarCodeType.Code128;
+            bs.Data = ScannerId.ToString();
+
+            BarCodeGenerator bg = new BarCodeGenerator(bs);
+            bg.GenerateImage().Save(name);
+
+            return name;
         }
     }
 
-    public class ArticleType
+    public class ArticleType : ERPItem
     {
         public int Id { get; }
         public string Name { get; }
@@ -1303,7 +1358,7 @@ namespace ERP_Fix
         }
     }
 
-    public class StorageSlot
+    public class StorageSlot : ERPItem
     {
         public int Id { get; }
         public List<Article> Fill { get; set; }
@@ -1322,7 +1377,7 @@ namespace ERP_Fix
         Cancelled
     }
 
-    public class Order
+    public class Order : ERPItem
     {
         public int Id { get; }
         public List<OrderItem> Articles { get; set; }
@@ -1351,7 +1406,7 @@ namespace ERP_Fix
         }
     }
 
-    public class SelfOrder
+    public class SelfOrder : ERPItem
     {
         public int Id { get; }
         public List<OrderItem> Articles { get; set; }
@@ -1401,7 +1456,7 @@ namespace ERP_Fix
         }
     }
 
-    public class Prices
+    public class Prices : ERPItem
     {
         public int Id { get; }
         public Dictionary<ArticleType, double> PriceList { get; }
@@ -1413,7 +1468,7 @@ namespace ERP_Fix
         }
     }
 
-    public class Bill
+    public class Bill : ERPItem
     {
         public int Id { get; }
         public double TotalPrice { get; }
@@ -1429,7 +1484,7 @@ namespace ERP_Fix
         }
     }
 
-    public class PaymentTerms
+    public class PaymentTerms : ERPItem
     {
 
         public int Id { get; }
@@ -1467,6 +1522,54 @@ namespace ERP_Fix
         public static double GetDiscountAmount(double totalAmount, double? discountPercent)
         {
             return discountPercent.HasValue ? totalAmount * (double)discountPercent : 0;
+        }
+    }
+
+    public class Section : ERPItem
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+
+        public Section(int id, string name)
+        {
+            Id = id;
+            Name = name;
+        }
+    }
+
+    public enum PersonType
+    {
+        Employee = 0,
+        Customer = 1
+    }
+
+    public abstract class Person : ERPItem
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public PersonType Type { get; set; }
+    }
+
+    public class Employee : Person
+    {
+        public Section worksIn { get; set; }
+
+        public Employee(int id, string name, Section worksIn)
+        {
+            Id = id;
+            Name = name;
+            Type = PersonType.Employee;
+            this.worksIn = worksIn;
+        }
+    }
+
+    public class Customer : Person
+    {
+        public Customer(int id, string name)
+        {
+            Id = id;
+            Name = name;
+            Type = PersonType.Customer;
         }
     }
 
@@ -1515,7 +1618,7 @@ namespace ERP_Fix
     }
 
     internal class DTO_ArticleType { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
-    internal class DTO_Article { public int Id { get; set; } public int TypeId { get; set; } public int Stock { get; set; } }
+    internal class DTO_Article { public int Id { get; set; } public int TypeId { get; set; } public int Stock { get; set; } public long ScannerId { get; set; } }
     internal class DTO_StorageSlot { public int Id { get; set; } public List<int> FillArticleIds { get; set; } = new(); }
     internal class DTO_OrderItem { public int Id { get; set; } public int TypeId { get; set; } public int Stock { get; set; } }
     internal class DTO_Order { public int Id { get; set; } public int CustomerId { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); }
@@ -1526,54 +1629,6 @@ namespace ERP_Fix
     internal class DTO_Section { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
     internal class DTO_Employee { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int WorksInSectionId { get; set; } }
     internal class DTO_Customer { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
-
-    public class Section
-    {
-        public int Id { get; set; }
-        public string Name { get; set; }
-
-        public Section(int id, string name)
-        {
-            Id = id;
-            Name = name;
-        }
-    }
-
-    public enum PersonType
-    {
-        Employee = 0,
-        Customer = 1
-    }
-
-    public abstract class Person
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public PersonType Type { get; set; }
-    }
-
-    public class Employee : Person
-    {
-        public Section worksIn { get; set; }
-
-        public Employee(int id, string name, Section worksIn)
-        {
-            Id = id;
-            Name = name;
-            Type = PersonType.Employee;
-            this.worksIn = worksIn;
-        }
-    }
-
-    public class Customer : Person
-    {
-        public Customer(int id, string name)
-        {
-            Id = id;
-            Name = name;
-            Type = PersonType.Customer;
-        }
-    }
 
     public class BillReader
     {
@@ -1603,21 +1658,21 @@ namespace ERP_Fix
             // Seller
             Console.WriteLine("\n=== Seller ===");
             var sellerNode = xmlDoc.SelectSingleNode("//ram:SellerTradeParty", nsMgr);
-            Console.WriteLine($"Name: {sellerNode.SelectSingleNode("ram:Name", nsMgr)?.InnerText}");
-            Console.WriteLine($"Street: {sellerNode.SelectSingleNode("ram:PostalTradeAddress/ram:LineOne", nsMgr)?.InnerText}");
-            Console.WriteLine($"ZIP: {sellerNode.SelectSingleNode("ram:PostalTradeAddress/ram:PostcodeCode", nsMgr)?.InnerText}");
-            Console.WriteLine($"City: {sellerNode.SelectSingleNode("ram:PostalTradeAddress/ram:CityName", nsMgr)?.InnerText}");
-            Console.WriteLine($"Country: {sellerNode.SelectSingleNode("ram:PostalTradeAddress/ram:CountryID", nsMgr)?.InnerText}");
-            Console.WriteLine($"VAT ID: {sellerNode.SelectSingleNode("ram:SpecifiedTaxRegistration/ram:ID", nsMgr)?.InnerText}");
+            Console.WriteLine($"Name: {sellerNode?.SelectSingleNode("ram:Name", nsMgr)?.InnerText}");
+            Console.WriteLine($"Street: {sellerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:LineOne", nsMgr)?.InnerText}");
+            Console.WriteLine($"ZIP: {sellerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:PostcodeCode", nsMgr)?.InnerText}");
+            Console.WriteLine($"City: {sellerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:CityName", nsMgr)?.InnerText}");
+            Console.WriteLine($"Country: {sellerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:CountryID", nsMgr)?.InnerText}");
+            Console.WriteLine($"VAT ID: {sellerNode?.SelectSingleNode("ram:SpecifiedTaxRegistration/ram:ID", nsMgr)?.InnerText}");
 
             // Buyer
             Console.WriteLine("\n=== Buyer ===");
             var buyerNode = xmlDoc.SelectSingleNode("//ram:BuyerTradeParty", nsMgr);
-            Console.WriteLine($"Name: {buyerNode.SelectSingleNode("ram:Name", nsMgr)?.InnerText}");
-            Console.WriteLine($"Street: {buyerNode.SelectSingleNode("ram:PostalTradeAddress/ram:LineOne", nsMgr)?.InnerText}");
-            Console.WriteLine($"ZIP: {buyerNode.SelectSingleNode("ram:PostalTradeAddress/ram:PostcodeCode", nsMgr)?.InnerText}");
-            Console.WriteLine($"City: {buyerNode.SelectSingleNode("ram:PostalTradeAddress/ram:CityName", nsMgr)?.InnerText}");
-            Console.WriteLine($"Country: {buyerNode.SelectSingleNode("ram:PostalTradeAddress/ram:CountryID", nsMgr)?.InnerText}");
+            Console.WriteLine($"Name: {buyerNode?.SelectSingleNode("ram:Name", nsMgr)?.InnerText}");
+            Console.WriteLine($"Street: {buyerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:LineOne", nsMgr)?.InnerText}");
+            Console.WriteLine($"ZIP: {buyerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:PostcodeCode", nsMgr)?.InnerText}");
+            Console.WriteLine($"City: {buyerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:CityName", nsMgr)?.InnerText}");
+            Console.WriteLine($"Country: {buyerNode?.SelectSingleNode("ram:PostalTradeAddress/ram:CountryID", nsMgr)?.InnerText}");
 
             // Reference (Order)
             var buyerRefNode = xmlDoc.SelectSingleNode("//ram:BuyerReference", nsMgr);
@@ -1660,41 +1715,48 @@ namespace ERP_Fix
             // Tax breakdown
             Console.WriteLine("\n=== Tax Details ===");
             var taxNodes = xmlDoc.SelectNodes("//ram:ApplicableTradeTax", nsMgr);
-            foreach (XmlNode tax in taxNodes)
+            if (taxNodes != null)
             {
-                Console.WriteLine("- VAT Info:");
-                Console.WriteLine($"  Tax Amount: {tax.SelectSingleNode("ram:CalculatedAmount", nsMgr)?.InnerText}");
-                Console.WriteLine($"  Tax Type: {tax.SelectSingleNode("ram:TypeCode", nsMgr)?.InnerText}");
-                Console.WriteLine($"  Tax Basis: {tax.SelectSingleNode("ram:BasisAmount", nsMgr)?.InnerText}");
-                Console.WriteLine($"  Tax Rate: {tax.SelectSingleNode("ram:RateApplicablePercent", nsMgr)?.InnerText}%");
+                foreach (XmlNode tax in taxNodes)
+                {
+                    Console.WriteLine("- VAT Info:");
+                    Console.WriteLine($"  Tax Amount: {tax.SelectSingleNode("ram:CalculatedAmount", nsMgr)?.InnerText}");
+                    Console.WriteLine($"  Tax Type: {tax.SelectSingleNode("ram:TypeCode", nsMgr)?.InnerText}");
+                    Console.WriteLine($"  Tax Basis: {tax.SelectSingleNode("ram:BasisAmount", nsMgr)?.InnerText}");
+                    Console.WriteLine($"  Tax Rate: {tax.SelectSingleNode("ram:RateApplicablePercent", nsMgr)?.InnerText}%");
+                }
             }
 
             // All positions
             Console.WriteLine("\n=== Line Items ===");
             var lineItems = xmlDoc.SelectNodes("//ram:IncludedSupplyChainTradeLineItem", nsMgr);
-            foreach (XmlNode item in lineItems)
+            if (lineItems != null)
             {
-                var lineId = item.SelectSingleNode("ram:AssociatedDocumentLineDocument/ram:LineID", nsMgr);
-                var productName = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:Name", nsMgr);
-                var productDesc = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:Description", nsMgr);
-                var buyerAssignedId = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:BuyerAssignedID", nsMgr);
-                var quantity = item.SelectSingleNode("ram:SpecifiedLineTradeDelivery/ram:BilledQuantity", nsMgr);
-                var unit = quantity?.Attributes["unitCode"]?.Value ?? "";
-                var grossPrice = item.SelectSingleNode("ram:SpecifiedLineTradeAgreement/ram:GrossPriceProductTradePrice/ram:ChargeAmount", nsMgr);
-                var netPrice = item.SelectSingleNode("ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount", nsMgr);
-                var lineTotal = item.SelectSingleNode("ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount", nsMgr);
-                var taxDetail = item.SelectSingleNode("ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax", nsMgr);
-                var taxRate = taxDetail?.SelectSingleNode("ram:RateApplicablePercent", nsMgr);
+                foreach (XmlNode item in lineItems)
+                {
+                    var lineId = item.SelectSingleNode("ram:AssociatedDocumentLineDocument/ram:LineID", nsMgr);
+                    var productName = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:Name", nsMgr);
+                    var productDesc = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:Description", nsMgr);
+                    var buyerAssignedId = item.SelectSingleNode("ram:SpecifiedTradeProduct/ram:BuyerAssignedID", nsMgr);
+                    var quantity = item.SelectSingleNode("ram:SpecifiedLineTradeDelivery/ram:BilledQuantity", nsMgr);
+                    var unitAttr = quantity?.Attributes?["unitCode"];
+                    var unit = unitAttr != null ? unitAttr.Value : string.Empty;
+                    var grossPrice = item.SelectSingleNode("ram:SpecifiedLineTradeAgreement/ram:GrossPriceProductTradePrice/ram:ChargeAmount", nsMgr);
+                    var netPrice = item.SelectSingleNode("ram:SpecifiedLineTradeAgreement/ram:NetPriceProductTradePrice/ram:ChargeAmount", nsMgr);
+                    var lineTotal = item.SelectSingleNode("ram:SpecifiedLineTradeSettlement/ram:SpecifiedTradeSettlementLineMonetarySummation/ram:LineTotalAmount", nsMgr);
+                    var taxDetail = item.SelectSingleNode("ram:SpecifiedLineTradeSettlement/ram:ApplicableTradeTax", nsMgr);
+                    var taxRate = taxDetail?.SelectSingleNode("ram:RateApplicablePercent", nsMgr);
 
-                Console.WriteLine($"\nLine {lineId?.InnerText}:");
-                Console.WriteLine($"  Product: {productName?.InnerText}");
-                Console.WriteLine($"  Description: {productDesc?.InnerText}");
-                Console.WriteLine($"  Product Number: {buyerAssignedId?.InnerText}");
-                Console.WriteLine($"  Quantity: {quantity?.InnerText} {unit}");
-                Console.WriteLine($"  Gross Price per Unit: {grossPrice?.InnerText} EUR");
-                Console.WriteLine($"  Net Price per Unit: {netPrice?.InnerText} EUR");
-                Console.WriteLine($"  Line Total: {lineTotal?.InnerText} EUR");
-                Console.WriteLine($"  VAT Rate: {taxRate?.InnerText}%");
+                    Console.WriteLine($"\nLine {lineId?.InnerText}:");
+                    Console.WriteLine($"  Product: {productName?.InnerText}");
+                    Console.WriteLine($"  Description: {productDesc?.InnerText}");
+                    Console.WriteLine($"  Product Number: {buyerAssignedId?.InnerText}");
+                    Console.WriteLine($"  Quantity: {quantity?.InnerText} {unit}");
+                    Console.WriteLine($"  Gross Price per Unit: {grossPrice?.InnerText} EUR");
+                    Console.WriteLine($"  Net Price per Unit: {netPrice?.InnerText} EUR");
+                    Console.WriteLine($"  Line Total: {lineTotal?.InnerText} EUR");
+                    Console.WriteLine($"  VAT Rate: {taxRate?.InnerText}%");
+                }
             }
         }
     }

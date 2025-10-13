@@ -1,0 +1,52 @@
+﻿{
+  "SchemaVersion": 2,
+  "InstanceName": "def",
+  "FileBaseName": "def",
+  "OwnCapital": 0,
+  "OwnCapitalSet": false,
+  "WantedStockByTypeId": {},
+  "LastIds": {
+    "LastStockId": 0,
+    "LastSlotId": 0,
+    "LastArticleTypeId": 0,
+    "LastOrderId": -1,
+    "LastSelfOrderId": -1,
+    "LastPricesId": -1,
+    "LastBillId": -1,
+    "LastPaymentTermsId": -1,
+    "LastSectionId": -1,
+    "LastEmployeeId": -1,
+    "LastCustomerId": -1,
+    "LastOrderItemId": 868434
+  },
+  "ArticleTypes": [
+    {
+      "Id": 0,
+      "Name": "Test"
+    }
+  ],
+  "Articles": [
+    {
+      "Id": 0,
+      "TypeId": 0,
+      "Stock": 5,
+      "ScannerId": 446626924791324
+    }
+  ],
+  "StorageSlots": [
+    {
+      "Id": 0,
+      "FillArticleIds": [
+        0
+      ]
+    }
+  ],
+  "Orders": [],
+  "SelfOrders": [],
+  "Prices": [],
+  "Bills": [],
+  "PaymentTerms": [],
+  "Sections": [],
+  "Employees": [],
+  "Customers": []
+}

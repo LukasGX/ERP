@@ -1,5 +1,5 @@
 ﻿{
-  "SchemaVersion": 1,
+  "SchemaVersion": 2,
   "InstanceName": "abc",
   "FileBaseName": "abc",
   "OwnCapital": 0,
@@ -9,7 +9,7 @@
     "LastStockId": 6,
     "LastSlotId": 6,
     "LastArticleTypeId": 6,
-    "LastOrderId": -1,
+    "LastOrderId": 0,
     "LastSelfOrderId": -1,
     "LastPricesId": -1,
     "LastBillId": -1,
@@ -17,7 +17,7 @@
     "LastSectionId": 6,
     "LastEmployeeId": 1,
     "LastCustomerId": 6,
-    "LastOrderItemId": 868439
+    "LastOrderItemId": 868441
   },
   "ArticleTypes": [
     {
@@ -53,37 +53,44 @@
     {
       "Id": 0,
       "TypeId": 0,
-      "Stock": 5
+      "Stock": 5,
+      "ScannerId": 252469036032852
     },
     {
       "Id": 1,
       "TypeId": 1,
-      "Stock": 10
+      "Stock": 10,
+      "ScannerId": 291229827089359
     },
     {
       "Id": 2,
       "TypeId": 2,
-      "Stock": 15
+      "Stock": 15,
+      "ScannerId": 373646527152879
     },
     {
       "Id": 3,
       "TypeId": 3,
-      "Stock": 20
+      "Stock": 20,
+      "ScannerId": 456582145649303
     },
     {
       "Id": 4,
       "TypeId": 4,
-      "Stock": 25
+      "Stock": 25,
+      "ScannerId": 246204487817382
     },
     {
       "Id": 5,
       "TypeId": 5,
-      "Stock": 30
+      "Stock": 30,
+      "ScannerId": 901447948338832
     },
     {
       "Id": 6,
       "TypeId": 6,
-      "Stock": 35
+      "Stock": 35,
+      "ScannerId": 820973305931565
     }
   ],
   "StorageSlots": [
@@ -116,7 +123,25 @@
       "FillArticleIds": []
     }
   ],
-  "Orders": [],
+  "Orders": [
+    {
+      "Id": 0,
+      "CustomerId": 0,
+      "Status": "Pending",
+      "Articles": [
+        {
+          "Id": 868440,
+          "TypeId": 1,
+          "Stock": 3
+        },
+        {
+          "Id": 868441,
+          "TypeId": 5,
+          "Stock": 20
+        }
+      ]
+    }
+  ],
   "SelfOrders": [],
   "Prices": [],
   "Bills": [],

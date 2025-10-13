@@ -1,5 +1,5 @@
 ﻿{
-  "SchemaVersion": 1,
+  "SchemaVersion": 2,
   "InstanceName": "STD",
   "FileBaseName": "std",
   "OwnCapital": 200000,
@@ -8,7 +8,7 @@
     "0": 1000
   },
   "LastIds": {
-    "LastStockId": 1,
+    "LastStockId": 3,
     "LastSlotId": 0,
     "LastArticleTypeId": 2,
     "LastOrderId": -1,
@@ -37,14 +37,16 @@
   ],
   "Articles": [
     {
-      "Id": 0,
+      "Id": 2,
       "TypeId": 0,
-      "Stock": 100
+      "Stock": 100,
+      "ScannerId": 530231721429985
     },
     {
-      "Id": 1,
+      "Id": 3,
       "TypeId": 1,
-      "Stock": 40
+      "Stock": 40,
+      "ScannerId": 620437680799021
     }
   ],
   "StorageSlots": [

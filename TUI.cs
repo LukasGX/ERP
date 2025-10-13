@@ -625,13 +625,13 @@ namespace ERP_Fix {
             {
                 X = 111,
                 Y = 1,
-                Width = 55,
+                Width = 85,
                 Height = 7
             };
             articleWin.ColorScheme = schemes[0];
             Application.Top.Add(articleWin);
             windows["article"] = articleWin;
-            defaultLayouts["article"] = (111, 1, 55, 7);
+            defaultLayouts["article"] = (111, 1, 85, 7);
 
             // customer window
             var customerWin = new Window("Kunden")
@@ -672,6 +672,19 @@ namespace ERP_Fix {
             windows["employee"] = employeeWin;
             defaultLayouts["employee"] = (151, 12, 45, 7);
 
+            // orders window
+            var orderWin = new Window("Bestellungen")
+            {
+                X = 42,
+                Y = 23,
+                Width = 60,
+                Height = 7
+            };
+            orderWin.ColorScheme = schemes[0];
+            Application.Top.Add(orderWin);
+            windows["order"] = orderWin;
+            defaultLayouts["order"] = (42, 23, 60, 7);
+
             // Enable keyboard navigation across secondary windows (F6/Shift+F6)
             RegisterSecondaryWindowNavigation();
 
@@ -687,6 +700,7 @@ namespace ERP_Fix {
             FillCustomerWindow(windows["customer"], Schemes(), false);
             FillSectionWindow(windows["section"], Schemes(), false);
             FillEmployeeWindow(windows["employee"], Schemes(), false);
+            FillOrderWindow(windows["order"], Schemes());
         }
 
         private void FillArticleTypeWindow(Window articleTypeWin, List<ColorScheme> schemes, bool showAll)
@@ -811,7 +825,7 @@ namespace ERP_Fix {
                 int intend = nameLabel.Frame.Width + 3;
 
                 var slot = erpManager.FindStorageSlot(a);
-                var extraInfoLabel = new Label($"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())})")
+                var extraInfoLabel = new Label($"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())}, ScannerId: {(string.IsNullOrEmpty(a.ScannerId.ToString()) ? "-" : a.ScannerId)})")
                 {
                     X = intend,
                     Y = 1 + i,
@@ -980,6 +994,38 @@ namespace ERP_Fix {
             }
 
             employeeWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void FillOrderWindow(Window orderWin, List<ColorScheme> schemes)
+        {
+            orderWin.RemoveAll();
+
+            var orders = erpManager!.GetAllOrders();
+            for (int i = 0; i < orders.Count; i++)
+            {
+                var o = orders[i];
+                var nameLabel = new Label($"Bestellung")
+                {
+                    X = 2,
+                    Y = 1 + i,
+                    ColorScheme = schemes[1]
+                };
+                orderWin.Add(nameLabel);
+
+                int intend = nameLabel.Frame.Width + 3;
+
+                var extraInfoLabel = new Label($"(ID: {o.Id}, Kunde: {(o.Customer == null ? "-" : o.Customer.Id)}, {o.Articles.Count} Artikel)")
+                {
+                    X = intend,
+                    Y = 1 + i,
+                    ColorScheme = schemes[4]
+                };
+                orderWin.Add(extraInfoLabel);
+            }
+
+            orderWin.Height = 4 + orders.Count;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1657,6 +1703,223 @@ namespace ERP_Fix {
             Application.Top.SetNeedsDisplay();
         }
 
+        private void CreateOrder(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var customerIdLabel = new Label("Kunden ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(customerIdLabel);
+
+            var customerIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(customerIdInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var customerIdText = customerIdInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(customerIdText))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(customerIdText, out int customerId) || customerId < 0)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                var customer = erpManager!.FindCustomer(customerId);
+                if (customer == null)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                win.Remove(customerIdLabel);
+                win.Remove(customerIdInput);
+                win.Remove(sendButton);
+
+                // Step 2: collect multiple OrderItems by Article ID and desired quantity
+                var orderItems = new List<OrderItem>();
+                var displayItems = new List<string>();
+
+                var artIdLabel = new Label("Artikel ID:")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(artIdLabel);
+
+                var artIdInput = new TextField()
+                {
+                    X = 2,
+                    Y = 2,
+                    Width = 16,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(artIdInput);
+
+                var qtyLabel = new Label("Menge:")
+                {
+                    X = 20,
+                    Y = 1,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(qtyLabel);
+
+                var qtyInput = new TextField()
+                {
+                    X = 20,
+                    Y = 2,
+                    Width = 10,
+                    ColorScheme = schemes[1]
+                };
+                win.Add(qtyInput);
+
+                var addBtn = new Button("Hinzufügen")
+                {
+                    X = 2,
+                    Y = 4,
+                    ColorScheme = schemes[2]
+                };
+                win.Add(addBtn);
+
+                var doneBtn = new Button("Fertig")
+                {
+                    X = 18,
+                    Y = 4,
+                    ColorScheme = schemes[2]
+                };
+                win.Add(doneBtn);
+
+                // ListView to show added items
+                var listHeader = new Label("Hinzugefügt:")
+                {
+                    X = 2,
+                    Y = 6,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(listHeader);
+
+                var listView = new ListView(displayItems)
+                {
+                    X = 2,
+                    Y = 7,
+                    Width = Dim.Fill() - 2,
+                    Height = Dim.Fill() - 8,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(listView);
+
+                Label? errorLabel = null;
+                void ShowError(string msg)
+                {
+                    if (errorLabel != null)
+                    {
+                        win.Remove(errorLabel);
+                        errorLabel = null;
+                    }
+                    errorLabel = new Label(msg)
+                    {
+                        X = 2,
+                        Y = 5,
+                        ColorScheme = schemes[4]
+                    };
+                    win.Add(errorLabel);
+                    Application.Top.SetNeedsDisplay();
+                }
+
+                addBtn.Clicked += () =>
+                {
+                    var artText = artIdInput.Text?.ToString() ?? string.Empty;
+                    var qtyText = qtyInput.Text?.ToString() ?? string.Empty;
+                    if (!int.TryParse(artText, out var artId) || !int.TryParse(qtyText, out var qty) || qty <= 0)
+                    {
+                        ShowError("Ungültige Eingabe.");
+                        return;
+                    }
+                    var article = erpManager!.FindArticle(artId);
+                    if (article == null)
+                    {
+                        ShowError($"Artikel mit ID {artId} nicht gefunden.");
+                        return;
+                    }
+                    // Convert to OrderItem using the article's type and requested quantity
+                    var orderItem = erpManager.NewOrderItem(article.Type.Id, qty, false);
+                    orderItems.Add(orderItem);
+                    displayItems.Add($"{article.Type.Name} (ID: {article.Type.Id}, Menge: {qty})");
+                    listView.SetSource(displayItems);
+                    if (errorLabel != null) { win.Remove(errorLabel); errorLabel = null; }
+                    artIdInput.Text = string.Empty;
+                    qtyInput.Text = string.Empty;
+                    artIdInput.SetFocus();
+                    Application.Top.SetNeedsDisplay();
+                };
+
+                doneBtn.Clicked += () =>
+                {
+                    if (orderItems.Count == 0)
+                    {
+                        ShowError("Bitte mindestens einen Artikel hinzufügen.");
+                        return;
+                    }
+                    // Create order with collected items
+                    var order = erpManager.NewOrder(orderItems, customer);
+
+                    // Clean up and show confirmation
+                    win.Remove(artIdLabel);
+                    win.Remove(artIdInput);
+                    win.Remove(qtyLabel);
+                    win.Remove(qtyInput);
+                    win.Remove(addBtn);
+                    win.Remove(doneBtn);
+                    win.Remove(listHeader);
+                    win.Remove(listView);
+                    if (errorLabel != null) { win.Remove(errorLabel); errorLabel = null; }
+
+                    var finishedText = new Label("Die Bestellung wurde erstellt.")
+                    {
+                        X = 2,
+                        Y = 1,
+                        ColorScheme = schemes[3]
+                    };
+                    win.Add(finishedText);
+                    var okButton = new Button("Ok")
+                    {
+                        X = 2,
+                        Y = 3,
+                        ColorScheme = schemes[2]
+                    };
+                    okButton.Clicked += () => { doAfter.Invoke(); };
+                    win.Add(okButton);
+                    Application.Top.SetNeedsDisplay();
+                };
+
+                // Set initial focus to article id input
+                artIdInput.SetFocus();
+            };
+            win.Add(sendButton);
+            Application.Top.SetNeedsDisplay();
+        }
+
         private void CreatingElementMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
         {
             win.RemoveAll();
@@ -1671,6 +1934,7 @@ namespace ERP_Fix {
                 { "Kunde", () => { CreateCustomer(win, schemes, DoAfter); } },
                 { "Abteilung", () => { CreateSection(win, schemes, DoAfter); } },
                 { "Mitarbeiter", () => { CreateEmployee(win, schemes, DoAfter); } },
+                { "Bestellung", () => { CreateOrder(win, schemes, DoAfter); } }
             };
             int posY = 1;
 
@@ -1700,7 +1964,8 @@ namespace ERP_Fix {
                 { "Zurück", () => { DoAfter(); } },
                 { "Artikel auffüllen", () => { RestockArticle(win, schemes, DoAfter); } },
                 { "Artikel entnehmen", () => { WithdrawArticle(win, schemes, DoAfter); } },
-                { "Artikel einsortieren", () => { SortArticle(win, schemes, DoAfter); } }
+                { "Artikel einsortieren", () => { SortArticle(win, schemes, DoAfter); } },
+                { "Barcode generieren", () => { GenerateBarcode(win, schemes, DoAfter); } }
             };
 
             int posY = 1;
@@ -2060,6 +2325,101 @@ namespace ERP_Fix {
                 win.Add(okButton);
             };
             win.Add(sendButton);
+        }
+
+        private void GenerateBarcode(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var articleIdLabel = new Label("Artikel ID:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdLabel);
+
+            var articleIdInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(articleIdInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var articleIdText = articleIdInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(articleIdText))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                if (!int.TryParse(articleIdText, out int articleId))
+                {
+                    DoAfter.Invoke();
+                    return;
+                }
+
+                var article = erpManager!.FindArticle(articleId);
+                if (article == null)
+                {
+                    win.Remove(articleIdLabel);
+                    win.Remove(articleIdInput);
+                    win.Remove(sendButton);
+
+                    var errorText = new Label($"Artikel mit ID {articleId} nicht gefunden.")
+                    {
+                        X = 2,
+                        Y = 1,
+                        ColorScheme = schemes[4]
+                    };
+                    win.Add(errorText);
+
+                    var okButtonErr = new Button("Ok")
+                    {
+                        X = 2,
+                        Y = 3,
+                        ColorScheme = schemes[2]
+                    };
+                    okButtonErr.Clicked += () => { DoAfter.Invoke(); };
+                    win.Add(okButtonErr);
+                    return;
+                }
+
+                win.Remove(articleIdLabel);
+                win.Remove(articleIdInput);
+                win.Remove(sendButton);
+
+                var finishedText = new Label($"Der Barcode wurde generiert: {article.GenerateBarCode()}")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Add(finishedText);
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 4,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    DoAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+            Application.Top.SetNeedsDisplay();
         }
 
         private void SaveInstance(Window win, List<ColorScheme> schemes, Action doAfter)
