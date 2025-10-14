@@ -17,7 +17,10 @@ namespace ERP_Fix {
         private readonly Dictionary<string, (int X, int Y, int W, int H)> defaultLayouts = new();
         // Navigation: cycle focus across secondary windows to access their controls via keyboard
         private bool secondaryNavRegistered = false;
-        private readonly string[] secondaryOrder = new[] { "articleType", "storageSlot", "article", "customer", "section", "employee" };
+        public static bool ShowCompletedOrders = false;
+        public static bool ShowCancelledOrders = false;
+
+    private readonly string[] secondaryOrder = new[] { "articleType", "storageSlot", "article", "customer", "section", "employee", "order" };
 
         public void Start()
         {
@@ -672,18 +675,31 @@ namespace ERP_Fix {
             windows["employee"] = employeeWin;
             defaultLayouts["employee"] = (151, 12, 45, 7);
 
-            // orders window
+            // order window
             var orderWin = new Window("Bestellungen")
             {
                 X = 42,
                 Y = 23,
-                Width = 60,
+                Width = 70,
                 Height = 7
             };
             orderWin.ColorScheme = schemes[0];
             Application.Top.Add(orderWin);
             windows["order"] = orderWin;
-            defaultLayouts["order"] = (42, 23, 60, 7);
+            defaultLayouts["order"] = (42, 23, 70, 7);
+
+            // prices window
+            var pricesWin = new Window("Preislisten")
+            {
+                X = 115,
+                Y = 23,
+                Width = 45,
+                Height = 7
+            };
+            pricesWin.ColorScheme = schemes[0];
+            Application.Top.Add(pricesWin);
+            windows["prices"] = pricesWin;
+            defaultLayouts["prices"] = (115, 23, 45, 7);
 
             // Enable keyboard navigation across secondary windows (F6/Shift+F6)
             RegisterSecondaryWindowNavigation();
@@ -1002,31 +1018,218 @@ namespace ERP_Fix {
         {
             orderWin.RemoveAll();
 
-            var orders = erpManager!.GetAllOrders();
-            for (int i = 0; i < orders.Count; i++)
+            // Filter out completed orders
+            
+            var visibleOrders = erpManager!.GetAllOrders()
+                .Where(o => o.Status == OrderStatus.Pending || (ShowCompletedOrders && o.Status == OrderStatus.Completed) || (ShowCancelledOrders && o.Status == OrderStatus.Cancelled))
+                .OrderBy(o => o.Id)
+                .ToList();
+
+            int row = 0;
+            foreach (var o in visibleOrders)
             {
-                var o = orders[i];
-                var nameLabel = new Label($"Bestellung")
+                // Base label
+                var baseLabel = new Label("Bestellung")
                 {
                     X = 2,
-                    Y = 1 + i,
+                    Y = 1 + row,
                     ColorScheme = schemes[1]
                 };
-                orderWin.Add(nameLabel);
+                orderWin.Add(baseLabel);
 
-                int intend = nameLabel.Frame.Width + 3;
+                int nextX = baseLabel.Frame.Width + 3;
 
-                var extraInfoLabel = new Label($"(ID: {o.Id}, Kunde: {(o.Customer == null ? "-" : o.Customer.Id)}, {o.Articles.Count} Artikel)")
+                // Status text + color
+                (string statusText, Color statusColor) = o.Status switch
                 {
-                    X = intend,
-                    Y = 1 + i,
+                    OrderStatus.Pending => ("Ausstehend", Color.BrightBlue),
+                    OrderStatus.Cancelled => ("Abgebrochen", Color.BrightRed),
+                    OrderStatus.Completed => ("Abgeschlossen", Color.Green), // won't normally show
+                    _ => (o.Status.ToString(), Color.Gray)
+                };
+                var statusAttr = Application.Driver.MakeAttribute(statusColor, Color.Black);
+                var statusLabel = new Label($"[{statusText}]")
+                {
+                    X = nextX,
+                    Y = 1 + row,
+                    ColorScheme = new ColorScheme { Normal = statusAttr, Focus = statusAttr, HotNormal = statusAttr, HotFocus = statusAttr }
+                };
+                orderWin.Add(statusLabel);
+                nextX += statusLabel.Frame.Width + 1;
+
+                // Extra info
+                var infoLabel = new Label($"(ID: {o.Id}, Kunde: {(o.Customer == null ? "-" : o.Customer.Id)}, {o.Articles.Count} Artikel)")
+                {
+                    X = nextX,
+                    Y = 1 + row,
                     ColorScheme = schemes[4]
                 };
-                orderWin.Add(extraInfoLabel);
+                orderWin.Add(infoLabel);
+                nextX += infoLabel.Frame.Width + 1;
+
+                // Detail button
+                var detailButton = new Button("Details")
+                {
+                    X = nextX,
+                    Y = 1 + row,
+                    ColorScheme = schemes[2]
+                };
+                detailButton.Clicked += () => ShowOrderDetails(o, schemes);
+                orderWin.Add(detailButton);
+
+                row++;
             }
 
-            orderWin.Height = 4 + orders.Count;
+            orderWin.Height = 4 + row;
+            Application.Top.SetNeedsDisplay();
+        }
 
+        private void ShowOrderDetails(Order order, List<ColorScheme> schemes)
+        {
+            if (!windows.ContainsKey("order")) return; // Safety
+
+            // Hide other secondary windows (keep main)
+            foreach (var kv in windows)
+            {
+                try { kv.Value.Visible = false; } catch { }
+            }
+
+            var detailWin = new Window($"Bestellung {order.Id} - Details")
+            {
+                X = 42,
+                Y = 1,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
+                ColorScheme = schemes[0]
+            };
+
+            var germanStatus = order.Status switch
+            {
+                OrderStatus.Pending => "Ausstehend",
+                OrderStatus.Completed => "Abgeschlossen",
+                OrderStatus.Cancelled => "Abgebrochen",
+                _ => "Unbekannt"
+            };
+
+            // Basic order info
+            string customerInfo = order.Customer == null ? "-" : $"{order.Customer.Name} (ID {order.Customer.Id})";
+            var infoLines = new List<string>
+            {
+                $"ID: {order.Id}",
+                $"Kunde: {customerInfo}",
+                $"Status: {germanStatus}",
+                $"Artikelanzahl: {order.Articles.Count}"
+            };
+
+            int y = 1;
+            foreach (var line in infoLines)
+            {
+                detailWin.Add(new Label(line)
+                {
+                    X = 2,
+                    Y = y,
+                    ColorScheme = schemes[1]
+                });
+                y++;
+            }
+
+            y++; // spacer
+
+            detailWin.Add(new Label("Artikel:")
+            {
+                X = 2,
+                Y = y,
+                ColorScheme = schemes[1]
+            });
+            y++;
+
+            if (order.Articles.Count == 0)
+            {
+                detailWin.Add(new Label("(Keine Artikel)") { X = 4, Y = y, ColorScheme = schemes[4] });
+                y++;
+            }
+            else
+            {
+                // List each article item
+                foreach (var item in order.Articles)
+                {
+                    var slot = erpManager!.FindStorageSlot(item);
+                    string slotTxt = slot == null ? "-" : slot.Id.ToString();
+                    string line = $"Typ: {item.Type.Name} (TypeID {item.Type.Id})  PosID: {item.Id}  Menge: {item.Stock}  Lagerplatz: {slotTxt}";
+                    detailWin.Add(new Label(line)
+                    {
+                        X = 4,
+                        Y = y,
+                        ColorScheme = schemes[4]
+                    });
+                    y++;
+                }
+            }
+
+            y += 1;
+
+            // Action buttons
+            var closeBtn = new Button("Schließen")
+            {
+                X = 2,
+                Y = y,
+                ColorScheme = schemes[2]
+            };
+            closeBtn.Clicked += () =>
+            {
+                Application.Top.Remove(detailWin);
+                try { detailWin.Dispose(); } catch { }
+                // Restore all windows
+                foreach (var kv in windows)
+                {
+                    try { kv.Value.Visible = true; } catch { }
+                }
+                // Refresh orders (status might have changed)
+                if (windows.TryGetValue("order", out var ow))
+                {
+                    FillOrderWindow(ow, Schemes());
+                }
+                Application.Top.SetNeedsDisplay();
+            };
+            detailWin.Add(closeBtn);
+
+            if (order.Status == OrderStatus.Pending)
+            {
+                var completeBtn = new Button("Abschließen")
+                {
+                    X = Pos.Right(closeBtn) + 2,
+                    Y = y,
+                    ColorScheme = schemes[2]
+                };
+                completeBtn.Clicked += () =>
+                {
+                    erpManager!.FinishOrder(order);
+                    FillOrderWindow(windows["order"], Schemes());
+                    Application.Top.Remove(detailWin);
+                    ShowOrderDetails(order, schemes); // refresh details
+                    Application.Top.SetNeedsDisplay();
+                };
+                detailWin.Add(completeBtn);
+
+                var cancelBtn = new Button("Abbrechen")
+                {
+                    X = Pos.Right(completeBtn) + 2,
+                    Y = y,
+                    ColorScheme = schemes[2]
+                };
+                cancelBtn.Clicked += () =>
+                {
+                    erpManager!.CancelOrder(order);
+                    FillOrderWindow(windows["order"], Schemes());
+                    Application.Top.Remove(detailWin);
+                    ShowOrderDetails(order, schemes); // refresh details
+                    Application.Top.SetNeedsDisplay();
+                };
+                detailWin.Add(cancelBtn);
+            }
+
+            Application.Top.Add(detailWin);
+            detailWin.SetFocus();
             Application.Top.SetNeedsDisplay();
         }
 

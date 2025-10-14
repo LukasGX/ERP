@@ -26,6 +26,17 @@ namespace ERP_Fix
                 HideCredits = true;
             }
 
+            if (args.Contains("--show-completed-orders"))
+            {
+                TUI.ShowCompletedOrders = true;
+            }
+
+            if (args.Contains("--show-cancelled-orders"))
+            {
+                TUI.ShowCancelledOrders = true;
+            }
+
+            // start actual program
             if (args.Contains("--shell"))
             {
                 Shell shell = new Shell();
