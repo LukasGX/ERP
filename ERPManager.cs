@@ -839,6 +839,11 @@ namespace ERP_Fix
             return articles.FirstOrDefault(a => a.Id == id);
         }
 
+        public Article? FindArticleByScannerId(long scannerId)
+        {
+            return articles.FirstOrDefault(a => a.ScannerId == scannerId);
+        }
+
         public Section? FindSection(int id)
         {
             return sections.FirstOrDefault(s => s.Id == id);

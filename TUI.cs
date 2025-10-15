@@ -478,24 +478,31 @@ namespace ERP_Fix {
                 ColorScheme = schemes[2]
             };
 
-            var buttonSave = new Button("Speichern")
+            var buttonArticleScan = new Button("Artikel scannen")
             {
                 X = 2,
                 Y = 5,
                 ColorScheme = schemes[2]
             };
 
-            var buttonClose = new Button("Schließen")
+            var buttonSave = new Button("Speichern")
             {
                 X = 2,
                 Y = 7,
                 ColorScheme = schemes[2]
             };
 
+            var buttonClose = new Button("Schließen")
+            {
+                X = 2,
+                Y = 9,
+                ColorScheme = schemes[2]
+            };
+
             var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
             {
                 X = 2,
-                Y = 10,
+                Y = 11,
                 ColorScheme = schemes[4]
             };
             win.Add(labelWindowSwitch);
@@ -503,13 +510,14 @@ namespace ERP_Fix {
             var labelExitProgram = new Label("Programm beenden mit Esc")
             {
                 X = 2,
-                Y = 11,
+                Y = 12,
                 ColorScheme = schemes[4]
             };
             win.Add(labelExitProgram);
 
             Action? buttonCreateClick = null;
             Action? buttonArticleOpsClick = null;
+            Action? buttonArticleScanClick = null;
             Action? buttonSaveClick = null;
             Action? buttonCloseClick = null;
 
@@ -537,10 +545,19 @@ namespace ERP_Fix {
                 buttonArticleOps.Clicked += buttonArticleOpsClick;
                 win.Add(buttonArticleOps);
 
-                var buttonSave = new Button("Speichern")
+                var buttonArticleScan = new Button("Artikel scannen")
                 {
                     X = 2,
                     Y = 5,
+                    ColorScheme = schemes[2]
+                };
+                buttonArticleScan.Clicked += buttonArticleScanClick;
+                win.Add(buttonArticleScan);
+
+                var buttonSave = new Button("Speichern")
+                {
+                    X = 2,
+                    Y = 7,
                     ColorScheme = schemes[2]
                 };
                 buttonSave.Clicked += buttonSaveClick;
@@ -549,7 +566,7 @@ namespace ERP_Fix {
                 var buttonClose = new Button("Schließen")
                 {
                     X = 2,
-                    Y = 7,
+                    Y = 9,
                     ColorScheme = schemes[2]
                 };
                 buttonClose.Clicked += buttonCloseClick;
@@ -558,7 +575,7 @@ namespace ERP_Fix {
                 var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
                 {
                     X = 2,
-                    Y = 10,
+                    Y = 11,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelWindowSwitch);
@@ -566,7 +583,7 @@ namespace ERP_Fix {
                 var labelExitProgram = new Label("Programm beenden mit Esc")
                 {
                     X = 2,
-                    Y = 11,
+                    Y = 12,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelExitProgram);
@@ -580,6 +597,7 @@ namespace ERP_Fix {
 
             buttonCreateClick = () => { CreatingElementMenu(win, schemes, DoAfter); };
             buttonArticleOpsClick = () => { ArticleOperationsMenu(win, schemes, DoAfter); };
+            buttonArticleScanClick = () => { ScanArticle(win, schemes, DoAfter); };
             buttonCloseClick = () => { CloseInstance(win, schemes); };
             buttonSaveClick = () => { SaveInstance(win, schemes, DoAfter); };
 
@@ -588,6 +606,9 @@ namespace ERP_Fix {
 
             buttonArticleOps.Clicked += buttonArticleOpsClick;
             win.Add(buttonArticleOps);
+
+            buttonArticleScan.Clicked += buttonArticleScanClick;
+            win.Add(buttonArticleScan);
 
             buttonSave.Clicked += buttonSaveClick;
             win.Add(buttonSave);
@@ -2188,7 +2209,223 @@ namespace ERP_Fix {
             Application.Top.SetNeedsDisplay();
         }
 
-        private void RestockArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        private void ScanArticle(Window mainWin, List<ColorScheme> schemes, Action DoAfter)
+        {
+            // Hide other secondary windows (keep main)
+            foreach (var kv in windows)
+            {
+                try { kv.Value.Visible = false; } catch { }
+            }
+
+            // Create or show a full-size window to the right of the main window
+            var scanWin = new Window("Artikel scannen")
+            {
+                X = 42,
+                Y = 1,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
+                ColorScheme = schemes[0]
+            };
+
+            void CloseScan()
+            {
+                try { Application.Top.Remove(scanWin); } catch { }
+                try { scanWin.Dispose(); } catch { }
+                // Restore all secondary windows
+                foreach (var kv in windows)
+                {
+                    try { kv.Value.Visible = true; } catch { }
+                }
+                // Refresh quick lists
+                fillAllWindows();
+                Application.Top.SetNeedsDisplay();
+            }
+
+            void RenderSearch()
+            {
+                scanWin.RemoveAll();
+
+                var info = new Label("Scanner-ID oder Artikel-ID eingeben und Enter drücken")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[1]
+                };
+                scanWin.Add(info);
+
+                var input = new TextField("")
+                {
+                    X = 2,
+                    Y = 3,
+                    Width = 40,
+                    ColorScheme = schemes[1]
+                };
+                scanWin.Add(input);
+
+                Label? errorLabel = null;
+                void ShowError(string msg)
+                {
+                    if (errorLabel != null)
+                    {
+                        scanWin.Remove(errorLabel);
+                        errorLabel = null;
+                    }
+                    errorLabel = new Label(msg)
+                    {
+                        X = 2,
+                        Y = 7,
+                        ColorScheme = schemes[4]
+                    };
+                    scanWin.Add(errorLabel);
+                }
+
+                void ShowDetails(Article article)
+                {
+                    scanWin.RemoveAll();
+
+                    var mockBtn = new Button("") {
+                        X = 2,
+                        Y = 1,
+                        Width = 1,
+                        Height = 1
+                    };
+                    scanWin.Add(mockBtn);
+                    mockBtn.SetFocus();
+
+                    var backBtn = new Button("Zurück zur Suche")
+                    {
+                        X = 2,
+                        Y = 1,
+                        ColorScheme = schemes[2]
+                    };
+                    backBtn.Clicked += RenderSearch;
+                    scanWin.Add(backBtn);
+
+                    int y = 3;
+                    var slot = erpManager!.FindStorageSlot(article);
+                    var details = new List<string>
+                    {
+                        $"Artikel: {article.Type.Name}",
+                        $"Artikel-ID: {article.Id}",
+                        $"Typ-ID: {article.Type.Id}",
+                        $"Bestand: {article.Stock}",
+                        $"Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())}",
+                        $"Scanner-ID: {article.ScannerId}"
+                    };
+                    foreach (var line in details)
+                    {
+                        scanWin.Add(new Label(line)
+                        {
+                            X = 2,
+                            Y = y++,
+                            ColorScheme = schemes[1]
+                        });
+                    }
+
+                    y += 1;
+
+                    // Action buttons
+                    var restockBtn = new Button("Auffüllen") { X = 2, Y = y, ColorScheme = schemes[2] };
+                    var withdrawBtn = new Button("Entnehmen") { X = Pos.Right(restockBtn) + 2, Y = y, ColorScheme = schemes[2] };
+                    var sortBtn = new Button("Einsortieren") { X = Pos.Right(withdrawBtn) + 2, Y = y, ColorScheme = schemes[2] };
+                    var barcodeBtn = new Button("Barcode") { X = Pos.Right(sortBtn) + 2, Y = y, ColorScheme = schemes[2] };
+                    var closeBtn = new Button("Schließen") { X = Pos.Right(barcodeBtn) + 2, Y = y, ColorScheme = schemes[2] };
+
+                    // After each operation, refresh side lists and redisplay details for the same article
+                    Action AfterOp = () =>
+                    {
+                        fillAllWindows();
+                        ShowDetails(article);
+                        Application.Top.SetNeedsDisplay();
+                    };
+
+                    restockBtn.Clicked += () =>
+                    {
+                        // Reuse existing form; provide our own DoAfter to return here
+                        RestockArticle(scanWin, schemes, AfterOp, article.Id);
+                    };
+                    withdrawBtn.Clicked += () =>
+                    {
+                        WithdrawArticle(scanWin, schemes, AfterOp, article.Id);
+                    };
+                    sortBtn.Clicked += () =>
+                    {
+                        SortArticle(scanWin, schemes, AfterOp, article.Id);
+                    };
+                    barcodeBtn.Clicked += () =>
+                    {
+                        GenerateBarcode(scanWin, schemes, AfterOp, article.Id);
+                    };
+                    closeBtn.Clicked += CloseScan;
+
+                    scanWin.Add(restockBtn);
+                    scanWin.Add(withdrawBtn);
+                    scanWin.Add(sortBtn);
+                    scanWin.Add(barcodeBtn);
+                    scanWin.Add(closeBtn);
+                }
+
+                void DoSearch()
+                {
+                    var text = input.Text?.ToString()?.Trim() ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(text)) { ShowError("Bitte eine ID eingeben."); return; }
+
+                    Article? found = null;
+                    // Try scanner id first (long), then article id (int)
+                    if (long.TryParse(text, out var scannerId))
+                    {
+                        found = erpManager!.FindArticleByScannerId(scannerId);
+                    }
+                    if (found == null && int.TryParse(text, out var articleId))
+                    {
+                        found = erpManager!.FindArticle(articleId);
+                    }
+
+                    if (found == null)
+                    {
+                        ShowError("Kein Artikel gefunden.");
+                        return;
+                    }
+
+                    ShowDetails(found);
+                }
+
+                var searchBtn = new Button("Suchen")
+                {
+                    X = 2,
+                    Y = 5,
+                    ColorScheme = schemes[2]
+                };
+                searchBtn.Clicked += DoSearch;
+                scanWin.Add(searchBtn);
+
+                var cancelBtn = new Button("Abbrechen")
+                {
+                    X = Pos.Right(searchBtn) + 2,
+                    Y = 5,
+                    ColorScheme = schemes[2]
+                };
+                cancelBtn.Clicked += CloseScan;
+                scanWin.Add(cancelBtn);
+
+                input.KeyDown += (args) =>
+                {
+                    if (args.KeyEvent.Key == Key.Enter)
+                    {
+                        args.Handled = true;
+                        searchBtn.OnClicked();
+                    }
+                };
+
+                input.SetFocus();
+            }
+
+            Application.Top.Add(scanWin);
+            RenderSearch();
+            Application.Top.SetNeedsDisplay();
+        }
+        
+        private void RestockArticle(Window win, List<ColorScheme> schemes, Action DoAfter, int? presetId = null)
         {
             win.RemoveAll();
 
@@ -2205,7 +2442,8 @@ namespace ERP_Fix {
                 X = 2,
                 Y = 2,
                 Width = 40,
-                ColorScheme = schemes[1]
+                ColorScheme = schemes[1],
+                Text = presetId?.ToString() ?? string.Empty,
             };
             win.Add(articleIdInput);
 
@@ -2225,6 +2463,11 @@ namespace ERP_Fix {
                 ColorScheme = schemes[1]
             };
             win.Add(amountInput);
+
+            if (presetId.HasValue)
+            {
+                amountInput.SetFocus();
+            }
 
             var sendButton = new Button("Ok")
             {
@@ -2285,7 +2528,7 @@ namespace ERP_Fix {
             win.Add(sendButton);
         }
 
-        private void WithdrawArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        private void WithdrawArticle(Window win, List<ColorScheme> schemes, Action DoAfter, int? presetId = null)
         {
             win.RemoveAll();
 
@@ -2302,7 +2545,8 @@ namespace ERP_Fix {
                 X = 2,
                 Y = 2,
                 Width = 40,
-                ColorScheme = schemes[1]
+                ColorScheme = schemes[1],
+                Text = presetId?.ToString() ?? string.Empty,
             };
             win.Add(articleIdInput);
 
@@ -2322,6 +2566,11 @@ namespace ERP_Fix {
                 ColorScheme = schemes[1]
             };
             win.Add(amountInput);
+
+            if (presetId.HasValue)
+            {
+                amountInput.SetFocus();
+            }
 
             var sendButton = new Button("Ok")
             {
@@ -2410,7 +2659,7 @@ namespace ERP_Fix {
             win.Add(sendButton);
         }
 
-        private void SortArticle(Window win, List<ColorScheme> schemes, Action DoAfter)
+        private void SortArticle(Window win, List<ColorScheme> schemes, Action DoAfter, int? presetId = null)
         {
             win.RemoveAll();
 
@@ -2427,7 +2676,8 @@ namespace ERP_Fix {
                 X = 2,
                 Y = 2,
                 Width = 40,
-                ColorScheme = schemes[1]
+                ColorScheme = schemes[1],
+                Text = presetId?.ToString() ?? string.Empty,
             };
             win.Add(articleIdInput);
 
@@ -2447,6 +2697,11 @@ namespace ERP_Fix {
                 ColorScheme = schemes[1]
             };
             win.Add(slotIdInput);
+
+            if (presetId.HasValue)
+            {
+                slotIdInput.SetFocus();   
+            }
 
             var sendButton = new Button("Ok")
             {
@@ -2530,7 +2785,7 @@ namespace ERP_Fix {
             win.Add(sendButton);
         }
 
-        private void GenerateBarcode(Window win, List<ColorScheme> schemes, Action DoAfter)
+        private void GenerateBarcode(Window win, List<ColorScheme> schemes, Action DoAfter, int? presetId = null)
         {
             win.RemoveAll();
 
@@ -2547,7 +2802,8 @@ namespace ERP_Fix {
                 X = 2,
                 Y = 2,
                 Width = 40,
-                ColorScheme = schemes[1]
+                ColorScheme = schemes[1],
+                Text = presetId?.ToString() ?? string.Empty,
             };
             win.Add(articleIdInput);
 
@@ -2622,6 +2878,12 @@ namespace ERP_Fix {
                 win.Add(okButton);
             };
             win.Add(sendButton);
+
+            if (presetId.HasValue)
+            {
+                sendButton.OnClicked();
+            }
+
             Application.Top.SetNeedsDisplay();
         }
 
