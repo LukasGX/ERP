@@ -432,7 +432,16 @@ namespace ERP_Fix
             var customerById = new Dictionary<int, Customer>();
             foreach (var c in snapshot.Customers)
             {
-                var cust = new Customer(c.Id, c.Name);
+                var cust = new Customer(
+                    c.Id,
+                    c.Name,
+                    c.Street,
+                    c.City,
+                    c.PostalCode,
+                    c.Country,
+                    c.Email,
+                    c.PhoneNumber
+                );
                 customerById[c.Id] = cust;
                 mgr.customers.Add(cust);
             }
@@ -445,7 +454,17 @@ namespace ERP_Fix
                     Console.WriteLine($"[WARN] Unknown SectionId {e.WorksInSectionId} for Employee {e.Id}. Skipping.");
                     continue;
                 }
-                var emp = new Employee(e.Id, e.Name, sec);
+                var emp = new Employee(
+                    e.Id,
+                    e.Name,
+                    sec,
+                    e.Street,
+                    e.City,
+                    e.PostalCode,
+                    e.Country,
+                    e.Email,
+                    e.PhoneNumber
+                );
                 mgr.employees.Add(emp);
             }
 
@@ -517,6 +536,15 @@ namespace ERP_Fix
                 mgr.prices.Add(new Prices(p.Id, dict));
             }
 
+            // Payment terms (load before bills so bills can reference them)
+            var termsById = new Dictionary<int, PaymentTerms>();
+            foreach (var pt in snapshot.PaymentTerms)
+            {
+                var terms = new PaymentTerms(pt.Id, pt.Name, pt.DaysUntilDue, pt.AbsolutePenalty, pt.DiscountDays, pt.DiscountPercent, pt.PenaltyRate);
+                mgr.paymentTerms.Add(terms);
+                termsById[pt.Id] = terms;
+            }
+
             // Bills
             foreach (var b in snapshot.Bills)
             {
@@ -530,15 +558,28 @@ namespace ERP_Fix
                     Console.WriteLine($"[WARN] Unknown CustomerId {b.CustomerId} for Bill {b.Id}. Skipping.");
                     continue;
                 }
-                var bill = new Bill(b.Id, b.TotalPrice, ord) { Customer = cust };
-                mgr.bills.Add(bill);
-            }
 
-            // Payment terms
-            foreach (var pt in snapshot.PaymentTerms)
-            {
-                var terms = new PaymentTerms(pt.Id, pt.Name, pt.DaysUntilDue, pt.AbsolutePenalty, pt.DiscountDays, pt.DiscountPercent, pt.PenaltyRate);
-                mgr.paymentTerms.Add(terms);
+                // Resolve payment terms; if missing create a sensible default
+                PaymentTerms termsForBill;
+                if (b.PaymentTermsId != 0 && termsById.TryGetValue(b.PaymentTermsId, out var foundTerms))
+                {
+                    termsForBill = foundTerms;
+                }
+                else
+                {
+                    // Backward compatibility for old snapshots without PaymentTermsId
+                    const int defaultTermsId = 0;
+                    if (!termsById.TryGetValue(defaultTermsId, out var def))
+                    {
+                        def = new PaymentTerms(defaultTermsId, "Standard", 30, 0.0);
+                        mgr.paymentTerms.Add(def);
+                        termsById[defaultTermsId] = def;
+                    }
+                    termsForBill = def;
+                }
+
+                var bill = new Bill(b.Id, b.TotalPrice, ord, termsForBill) { Customer = cust };
+                mgr.bills.Add(bill);
             }
 
             // Wanted stock
@@ -640,7 +681,8 @@ namespace ERP_Fix
                 Id = b.Id,
                 TotalPrice = b.TotalPrice,
                 OrderId = b.Order.Id,
-                CustomerId = b.Customer.Id
+                CustomerId = b.Customer.Id,
+                PaymentTermsId = b.PaymentTerms.Id
             }).ToList();
 
             var dtoPaymentTerms = paymentTerms.Select(pt => new DTO_PaymentTerms
@@ -665,20 +707,32 @@ namespace ERP_Fix
             {
                 Id = e.Id,
                 Name = e.Name ?? string.Empty,
-                WorksInSectionId = e.worksIn.Id
+                WorksInSectionId = e.worksIn.Id,
+                Street = e.Information?.Address?.Street ?? string.Empty,
+                City = e.Information?.Address?.City ?? string.Empty,
+                PostalCode = e.Information?.Address?.PostalCode ?? string.Empty,
+                Country = e.Information?.Address?.Country ?? string.Empty,
+                Email = e.Information?.ContactInformation?.Email ?? string.Empty,
+                PhoneNumber = e.Information?.ContactInformation?.PhoneNumber ?? string.Empty
             }).ToList();
 
             var dtoCustomers = customers.Select(c => new DTO_Customer
             {
                 Id = c.Id,
-                Name = c.Name ?? string.Empty
+                Name = c.Name ?? string.Empty,
+                Street = c.Information?.Address?.Street ?? string.Empty,
+                City = c.Information?.Address?.City ?? string.Empty,
+                PostalCode = c.Information?.Address?.PostalCode ?? string.Empty,
+                Country = c.Information?.Address?.Country ?? string.Empty,
+                Email = c.Information?.ContactInformation?.Email ?? string.Empty,
+                PhoneNumber = c.Information?.ContactInformation?.PhoneNumber ?? string.Empty
             }).ToList();
 
             var dtoWantedStock = wantedStock.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value);
 
             return new ERPInstanceSnapshot
             {
-                SchemaVersion = 2,
+                SchemaVersion = 4,
                 InstanceName = this.InstanceName,
                 FileBaseName = this.FileBaseName,
                 OwnCapital = this.ownCapital,
@@ -1144,7 +1198,7 @@ namespace ERP_Fix
         }
 
         // Bills
-        public Bill? NewBill(Order order, Prices prices)
+        public Bill? NewBill(Order order, Prices prices, PaymentTerms terms)
         {
             double totalPrice = 0;
 
@@ -1161,12 +1215,26 @@ namespace ERP_Fix
 
             totalPrice = Math.Round(totalPrice, 2);
 
-            Bill generated = new Bill(lastBillId + 1, totalPrice, order);
+            Bill generated = new Bill(lastBillId + 1, totalPrice, order, terms);
 
             bills.Add(generated);
             lastBillId += 1;
 
             return generated;
+        }
+
+        public double CalculateOrderTotal(Order order, Prices prices)
+        {
+            double total = 0;
+            foreach (var item in order.Articles)
+            {
+                if (!prices.PriceList.TryGetValue(item.Type, out var unit))
+                {
+                    throw new InvalidOperationException($"No price found for ArticleType {item.Type.Name}.");
+                }
+                total += unit * item.Stock;
+            }
+            return Math.Round(total, 2);
         }
 
         public void ListBills()
@@ -1176,7 +1244,7 @@ namespace ERP_Fix
             Console.ResetColor();
             foreach (Bill bill in bills)
             {
-                Console.WriteLine($"ID: {bill.Id}, Total Price: {bill.TotalPrice}, From: {bill.Customer.Name}");
+                Console.WriteLine($"ID: {bill.Id}, Total Price: {FormatAmount(bill.TotalPrice)}, From: {bill.Customer.Name}, Terms: {bill.PaymentTerms.Name}");
 
                 foreach (OrderItem item in bill.Order.Articles)
                 {
@@ -1234,7 +1302,7 @@ namespace ERP_Fix
             PaymentTerms generated = new PaymentTerms(lastPaymentTermsId + 1, name, cDaysUntilDue, absolutePenalty, discountDays, discountPercent, penaltyRate);
 
             paymentTerms.Add(generated);
-            lastBillId += 1;
+            lastPaymentTermsId += 1;
 
             return generated;
         }
@@ -1275,9 +1343,9 @@ namespace ERP_Fix
         }
 
         // Employees
-        public Employee NewEmployee(string name, Section worksIn)
+        public Employee NewEmployee(string name, Section worksIn, string Street, string City, string PostalCode, string Country, string Email, string PhoneNumber)
         {
-            Employee generated = new Employee(lastEmployeeId + 1, name, worksIn);
+            Employee generated = new Employee(lastEmployeeId + 1, name, worksIn, Street, City, PostalCode, Country, Email, PhoneNumber);
 
             employees.Add(generated);
             lastEmployeeId += 1;
@@ -1298,9 +1366,9 @@ namespace ERP_Fix
         }
 
         // Customers
-        public Customer NewCustomer(string name)
+        public Customer NewCustomer(string name, string Street, string City, string PostalCode, string Country, string Email, string PhoneNumber)
         {
-            Customer generated = new Customer(lastCustomerId + 1, name);
+            Customer generated = new Customer(lastCustomerId + 1, name, Street, City, PostalCode, Country, Email, PhoneNumber);
 
             customers.Add(generated);
             lastCustomerId += 1;
@@ -1356,7 +1424,14 @@ namespace ERP_Fix
             bs.Data = ScannerId.ToString();
 
             BarCodeGenerator bg = new BarCodeGenerator(bs);
-            bg.GenerateImage().Save(name);
+            if (OperatingSystem.IsWindows())
+            {
+                bg.GenerateImage().Save(name);
+            }
+            else
+            {
+                // On non-Windows platforms, System.Drawing may not be supported. Skip saving.
+            }
 
             return name;
         }
@@ -1490,13 +1565,15 @@ namespace ERP_Fix
         public double TotalPrice { get; }
         public Order Order { get; }
         public Customer Customer { get; set; }
+        public PaymentTerms PaymentTerms { get; set; }
 
-        public Bill(int id, double totalPrice, Order order)
+        public Bill(int id, double totalPrice, Order order, PaymentTerms paymentTerms)
         {
             Id = id;
             TotalPrice = totalPrice;
             Order = order;
             Customer = order.Customer;
+            PaymentTerms = paymentTerms;
         }
     }
 
@@ -1564,28 +1641,78 @@ namespace ERP_Fix
         public int Id { get; set; }
         public string? Name { get; set; }
         public PersonType Type { get; set; }
+        public PersonInformation? Information { get; set; }
     }
 
     public class Employee : Person
     {
         public Section worksIn { get; set; }
 
-        public Employee(int id, string name, Section worksIn)
+        public Employee(int id, string name, Section worksIn, string Street, string City, string PostalCode, string Country, string Email, string PhoneNumber)
         {
             Id = id;
             Name = name;
             Type = PersonType.Employee;
             this.worksIn = worksIn;
+
+            Information = new PersonInformation(
+                new Address(Street, City, PostalCode, Country),
+                new ContactInformation(Email, PhoneNumber)
+            );
         }
     }
 
     public class Customer : Person
     {
-        public Customer(int id, string name)
+        public Customer(int id, string name, string Street, string City, string PostalCode, string Country, string Email, string PhoneNumber)
         {
             Id = id;
             Name = name;
             Type = PersonType.Customer;
+            Information = new PersonInformation(
+                new Address(Street, City, PostalCode, Country),
+                new ContactInformation(Email, PhoneNumber)
+            );
+        }
+    }
+
+    public class PersonInformation : ERPItem
+    {
+        public Address Address { get; set; }
+        public ContactInformation ContactInformation { get; set; }
+
+        public PersonInformation(Address address, ContactInformation contactInformation)
+        {
+            Address = address;
+            ContactInformation = contactInformation;
+        }
+    }
+
+    public class Address : ERPItem
+    {
+        public string Street { get; set; }
+        public string City { get; set; }
+        public string PostalCode { get; set; }
+        public string Country { get; set; }
+
+        public Address(string street, string city, string postalCode, string country)
+        {
+            Street = street;
+            City = city;
+            PostalCode = postalCode;
+            Country = country;
+        }
+    }
+
+    public class ContactInformation : ERPItem
+    {
+        public string Email { get; set; }
+        public string PhoneNumber { get; set; }
+
+        public ContactInformation(string email, string phoneNumber)
+        {
+            Email = email;
+            PhoneNumber = phoneNumber;
         }
     }
 
@@ -1640,11 +1767,11 @@ namespace ERP_Fix
     internal class DTO_Order { public int Id { get; set; } public int CustomerId { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); }
     internal class DTO_SelfOrder { public int Id { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); public List<DTO_OrderItem> Arrived { get; set; } = new(); }
     internal class DTO_Prices { public int Id { get; set; } public Dictionary<int, double> PriceListByTypeId { get; set; } = new(); }
-    internal class DTO_Bill { public int Id { get; set; } public double TotalPrice { get; set; } public int OrderId { get; set; } public int CustomerId { get; set; } }
+    internal class DTO_Bill { public int Id { get; set; } public double TotalPrice { get; set; } public int OrderId { get; set; } public int CustomerId { get; set; } public int PaymentTermsId { get; set; } }
     internal class DTO_PaymentTerms { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int DaysUntilDue { get; set; } public int? DiscountDays { get; set; } public double? DiscountPercent { get; set; } public double? PenaltyRate { get; set; } public double AbsolutePenalty { get; set; } public bool UsingPenaltyRate { get; set; } }
     internal class DTO_Section { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
-    internal class DTO_Employee { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int WorksInSectionId { get; set; } }
-    internal class DTO_Customer { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
+    internal class DTO_Employee { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int WorksInSectionId { get; set; } public string Street { get; set; } = string.Empty; public string City { get; set; } = string.Empty; public string PostalCode { get; set; } = string.Empty; public string Country { get; set; } = string.Empty; public string Email { get; set; } = string.Empty; public string PhoneNumber { get; set; } = string.Empty; }
+    internal class DTO_Customer { public int Id { get; set; } public string Name { get; set; } = string.Empty; public string Street { get; set; } = string.Empty; public string City { get; set; } = string.Empty; public string PostalCode { get; set; } = string.Empty; public string Country { get; set; } = string.Empty; public string Email { get; set; } = string.Empty; public string PhoneNumber { get; set; } = string.Empty; }
 
     public class BillReader
     {

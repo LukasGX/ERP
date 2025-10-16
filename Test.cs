@@ -46,7 +46,9 @@ namespace ERP_Fix
                 { typeHammer, 12.0 }
             });
 
-            ExecuteOrders(program, prices);
+            // Create standard payment terms
+            var terms = program.NewPaymentTerms("Standard", 30, 0.0, 0, 0.0, 0.0);
+            ExecuteOrders(program, prices, terms);
             program.ListOrders();
             program.DisplayInventory();
 
@@ -60,7 +62,7 @@ namespace ERP_Fix
             program.RestockArticle(2, amount);
         }
 
-        private void ExecuteOrders(ERPManager program, Prices prices)
+        private void ExecuteOrders(ERPManager program, Prices prices, PaymentTerms terms)
         {
             Order newestOrder = program.NewestOrder();
             foreach (OrderItem item in newestOrder.Articles)
@@ -68,7 +70,7 @@ namespace ERP_Fix
                 ProduceHammer(program, item.Stock);
                 program.WithdrawArticle(2, item.Stock);
             }
-            program.NewBill(newestOrder, prices);
+            program.NewBill(newestOrder, prices, terms);
             program.FinishOrder(newestOrder);
         }
     }

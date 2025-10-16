@@ -1,5 +1,5 @@
 ﻿{
-  "SchemaVersion": 2,
+  "SchemaVersion": 3,
   "InstanceName": "abc",
   "FileBaseName": "abc",
   "OwnCapital": 0,
@@ -11,12 +11,12 @@
     "LastArticleTypeId": 6,
     "LastOrderId": 0,
     "LastSelfOrderId": -1,
-    "LastPricesId": -1,
+    "LastPricesId": 0,
     "LastBillId": -1,
     "LastPaymentTermsId": -1,
     "LastSectionId": 6,
     "LastEmployeeId": 1,
-    "LastCustomerId": 6,
+    "LastCustomerId": 7,
     "LastOrderItemId": 868441
   },
   "ArticleTypes": [
@@ -143,7 +143,20 @@
     }
   ],
   "SelfOrders": [],
-  "Prices": [],
+  "Prices": [
+    {
+      "Id": 0,
+      "PriceListByTypeId": {
+        "0": 3,
+        "1": 4,
+        "2": 5,
+        "3": 6,
+        "4": 7,
+        "5": 8,
+        "6": 15
+      }
+    }
+  ],
   "Bills": [],
   "PaymentTerms": [],
   "Sections": [
@@ -180,67 +193,161 @@
     {
       "Id": 0,
       "Name": "Hans Meier",
-      "WorksInSectionId": 0
+      "WorksInSectionId": 0,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 1,
       "Name": "Sabine Fischer",
-      "WorksInSectionId": 1
+      "WorksInSectionId": 1,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 2,
       "Name": "J\u00FCrgen Keller",
-      "WorksInSectionId": 2
+      "WorksInSectionId": 2,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 3,
       "Name": "Petra Schwarz",
-      "WorksInSectionId": 3
+      "WorksInSectionId": 3,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 4,
       "Name": "Thomas Becker",
-      "WorksInSectionId": 4
+      "WorksInSectionId": 4,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 5,
       "Name": "Monika Wolf",
-      "WorksInSectionId": 5
+      "WorksInSectionId": 5,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 1,
       "Name": "Stefan Braun",
-      "WorksInSectionId": 6
+      "WorksInSectionId": 6,
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     }
   ],
   "Customers": [
     {
       "Id": 0,
-      "Name": "Max Mustermann"
+      "Name": "Max Mustermann",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 1,
-      "Name": "Erika M\u00FCller"
+      "Name": "Erika M\u00FCller",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 2,
-      "Name": "Hans Schmidt"
+      "Name": "Hans Schmidt",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 3,
-      "Name": "Clara Becker"
+      "Name": "Clara Becker",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 4,
-      "Name": "Peter Wagner"
+      "Name": "Peter Wagner",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 5,
-      "Name": "Laura Fischer"
+      "Name": "Laura Fischer",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
     },
     {
       "Id": 6,
-      "Name": "Johannes Weber"
+      "Name": "Johannes Weber",
+      "Street": "",
+      "City": "",
+      "PostalCode": "",
+      "Country": "",
+      "Email": "",
+      "PhoneNumber": ""
+    },
+    {
+      "Id": 7,
+      "Name": "Testnutzer",
+      "Street": "Teststra\u00DFe",
+      "City": "Musterstadt",
+      "PostalCode": "12345",
+      "Country": "Deutschland",
+      "Email": "test@tester.de",
+      "PhoneNumber": "\u002B49 123456789"
     }
   ]
 }

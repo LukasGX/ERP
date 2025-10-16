@@ -420,7 +420,24 @@ namespace ERP_Fix
                         Console.WriteLine("<END-OF-OUTPUT>");
                         continue;
                     }
-                    Bill newBill = program.NewBill(orderToBill, pricesToUse);
+                    // Ensure we have payment terms; use existing first or create a default 30-day term
+                    PaymentTerms termsToUse;
+                    if (program.GetPaymentTermsCount() > 0)
+                    {
+                        termsToUse = program.GetAllPaymentTerms().First();
+                    }
+                    else
+                    {
+                        var created = program.NewPaymentTerms("Standard", 30, 0.0, 0, 0.0, 0.0);
+                        if (created == null)
+                        {
+                            Console.WriteLine("Failed to create default payment terms.");
+                            Console.WriteLine("<END-OF-OUTPUT>");
+                            continue;
+                        }
+                        termsToUse = created;
+                    }
+                    Bill newBill = program.NewBill(orderToBill, pricesToUse, termsToUse);
                     bills.Add(newBill.Id, newBill);
                     Console.WriteLine($"Bill created for order {orderId}.");
                     Console.WriteLine("<END-OF-OUTPUT>");
@@ -843,7 +860,24 @@ namespace ERP_Fix
                             {
                                 if (prices.TryGetValue(pricesChoice, out Prices priceList))
                                 {
-                                    Bill newBill = erpManager.NewBill(orderToUse, priceList);
+                                    // Ensure we have payment terms; use existing first or create a default 30-day term
+                                    PaymentTerms termsToUse;
+                                    if (erpManager.GetPaymentTermsCount() > 0)
+                                    {
+                                        termsToUse = erpManager.GetAllPaymentTerms().First();
+                                    }
+                                    else
+                                    {
+                                        var created = erpManager.NewPaymentTerms("Standard", 30, 0.0, 0, 0.0, 0.0);
+                                        if (created == null)
+                                        {
+                                            ShellAssistance.Error("Failed to create default payment terms");
+                                            continue;
+                                        }
+                                        termsToUse = created;
+                                    }
+
+                                    Bill newBill = erpManager.NewBill(orderToUse, priceList, termsToUse);
                                     bills.Add(newBill.Id, newBill);
                                     ShellAssistance.Success($"Your new bill ist accessible as B-{newBill.Id}");
                                 }
