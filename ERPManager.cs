@@ -1566,6 +1566,7 @@ namespace ERP_Fix
         public Order Order { get; }
         public Customer Customer { get; set; }
         public PaymentTerms PaymentTerms { get; set; }
+        public DateOnly BillDate { get; set; }
 
         public Bill(int id, double totalPrice, Order order, PaymentTerms paymentTerms)
         {
@@ -1574,6 +1575,7 @@ namespace ERP_Fix
             Order = order;
             Customer = order.Customer;
             PaymentTerms = paymentTerms;
+            BillDate = DateOnly.FromDateTime(DateTime.Now);
         }
     }
 
@@ -1602,7 +1604,7 @@ namespace ERP_Fix
             UsingPenaltyRate = penaltyRate.HasValue && penaltyRate.Value > 0;
         }
 
-        public static DateTime GetDueDate(DateTime InvoiceDate, int DaysUntilDue)
+        public static DateOnly GetDueDate(DateOnly InvoiceDate, int DaysUntilDue)
         {
             return InvoiceDate.AddDays(DaysUntilDue);
         }
