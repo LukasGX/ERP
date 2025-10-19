@@ -10,14 +10,14 @@
     "LastSlotId": 6,
     "LastArticleTypeId": 6,
     "LastOrderId": 7,
-    "LastSelfOrderId": 0,
+    "LastSelfOrderId": 1,
     "LastPricesId": 6,
     "LastBillId": 6,
     "LastPaymentTermsId": 5,
     "LastSectionId": 6,
     "LastEmployeeId": 1,
     "LastCustomerId": 7,
-    "LastOrderItemId": 868455
+    "LastOrderItemId": 868462
   },
   "ArticleTypes": [
     {
@@ -228,41 +228,41 @@
   ],
   "SelfOrders": [
     {
-      "Id": 0,
+      "Id": 1,
       "Status": "Pending",
       "Articles": [
         {
-          "Id": 868449,
+          "Id": 868456,
           "TypeId": 0,
           "Stock": 95
         },
         {
-          "Id": 868450,
+          "Id": 868457,
           "TypeId": 1,
           "Stock": 90
         },
         {
-          "Id": 868451,
+          "Id": 868458,
           "TypeId": 2,
           "Stock": 85
         },
         {
-          "Id": 868452,
+          "Id": 868459,
           "TypeId": 3,
           "Stock": 80
         },
         {
-          "Id": 868453,
+          "Id": 868460,
           "TypeId": 4,
           "Stock": 75
         },
         {
-          "Id": 868454,
+          "Id": 868461,
           "TypeId": 5,
           "Stock": 70
         },
         {
-          "Id": 868455,
+          "Id": 868462,
           "TypeId": 6,
           "Stock": 65
         }

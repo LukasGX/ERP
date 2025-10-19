@@ -953,6 +953,43 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeleteArticleType(int id)
+        {
+            // Delegate to the overload for a single implementation path
+            DeleteArticleType(FindArticleType(id));
+        }
+
+        public void DeleteArticleType(ArticleType? articleType)
+        {
+            if (articleType == null)
+            {
+                Console.WriteLine("[ERROR] Article type not found.");
+                return;
+            }
+
+            // Safety: prevent deletion if the type is still referenced by Articles, Orders, or Prices
+            bool referenced =
+                articles.Any(a => a.Type.Id == articleType.Id)
+                || orders.Any(o => o.Articles.Any(i => i.Type.Id == articleType.Id))
+                || prices.Any(p => p.PriceList.Keys.Any(t => t.Id == articleType.Id));
+            if (referenced)
+            {
+                Console.WriteLine($"[ERROR] Cannot delete ArticleType {articleType.Id} because it is referenced by Articles, Orders, or Prices.");
+                return;
+            }
+
+            // Prefer removal by Id to avoid reference mismatch
+            var toRemove = articleTypes.FirstOrDefault(t => t.Id == articleType.Id) ?? articleType;
+            if (articleTypes.Remove(toRemove))
+            {
+                Console.WriteLine($"[INFO] Article type with ID {toRemove.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Article type with ID {articleType.Id} not found.");
+            }
+        }
+
         public StorageSlot NewStorageSlot()
         {
             StorageSlot generated = new StorageSlot(lastSlotId + 1, new List<Article>());
@@ -961,6 +998,29 @@ namespace ERP_Fix
             lastSlotId += 1;
 
             return generated;
+        }
+
+        public void DeleteStorageSlot(int id)
+        {
+            var slot = storageSlots.FirstOrDefault(s => s.Id == id);
+            DeleteStorageSlot(slot);
+        }
+
+        public void DeleteStorageSlot(StorageSlot? slot)
+        {
+            if (slot == null)
+            {
+                Console.WriteLine("[ERROR] Storage slot not found.");
+                return;
+            }
+            if (storageSlots.Remove(slot))
+            {
+                Console.WriteLine($"[INFO] Storage slot with ID {slot.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Storage slot with ID {slot.Id} not found.");
+            }
         }
 
         public Article NewArticle(int typeId, int stock, bool toList = true)
@@ -981,6 +1041,35 @@ namespace ERP_Fix
             lastStockId += 1;
 
             return generated;
+        }
+
+        public void DeleteArticle(int id)
+        {
+            DeleteArticle(FindArticle(id));
+        }
+
+        public void DeleteArticle(Article? article)
+        {
+            if (article == null)
+            {
+                Console.WriteLine("[ERROR] Article not found.");
+                return;
+            }
+
+            // Remove from any storage slots that contain this article
+            foreach (var slot in storageSlots)
+            {
+                while (slot.Fill.Remove(article)) { }
+            }
+
+            if (articles.Remove(article))
+            {
+                Console.WriteLine($"[INFO] Article with ID {article.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Article with ID {article.Id} not found.");
+            }
         }
 
         public OrderItem NewOrderItem(int typeId, int stock, bool toList = true)
@@ -1084,6 +1173,37 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeleteOrder(int id)
+        {
+            var order = orders.FirstOrDefault(o => o.Id == id);
+            DeleteOrder(order);
+        }
+
+        public void DeleteOrder(Order? order)
+        {
+            if (order == null)
+            {
+                Console.WriteLine("[ERROR] Order not found.");
+                return;
+            }
+
+            // Safety: prevent deletion if referenced by a bill
+            if (bills.Any(b => b.Order.Id == order.Id))
+            {
+                Console.WriteLine($"[ERROR] Cannot delete Order {order.Id} because it is referenced by a Bill.");
+                return;
+            }
+
+            if (orders.Remove(order))
+            {
+                Console.WriteLine($"[INFO] Order with ID {order.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Order with ID {order.Id} not found.");
+            }
+        }
+
         public void ListOrders(bool showFullNotPending = false)
         {
             Console.ForegroundColor = SECTION_INDICATOR_COLOR;
@@ -1146,6 +1266,29 @@ namespace ERP_Fix
             lastSelfOrderId += 1;
 
             return generated;
+        }
+
+        public void DeleteSelfOrder(int id)
+        {
+            var so = selfOrders.FirstOrDefault(s => s.Id == id);
+            DeleteSelfOrder(so);
+        }
+
+        public void DeleteSelfOrder(SelfOrder? selfOrder)
+        {
+            if (selfOrder == null)
+            {
+                Console.WriteLine("[ERROR] Self order not found.");
+                return;
+            }
+            if (selfOrders.Remove(selfOrder))
+            {
+                Console.WriteLine($"[INFO] Self order with ID {selfOrder.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Self order with ID {selfOrder.Id} not found.");
+            }
         }
 
         public void ListSelfOrders(bool showFullNotPending = false)
@@ -1223,6 +1366,29 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeleteBill(int id)
+        {
+            var bill = bills.FirstOrDefault(b => b.Id == id);
+            DeleteBill(bill);
+        }
+
+        public void DeleteBill(Bill? bill)
+        {
+            if (bill == null)
+            {
+                Console.WriteLine("[ERROR] Bill not found.");
+                return;
+            }
+            if (bills.Remove(bill))
+            {
+                Console.WriteLine($"[INFO] Bill with ID {bill.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Bill with ID {bill.Id} not found.");
+            }
+        }
+
         public double CalculateOrderTotal(Order order, Prices prices)
         {
             double total = 0;
@@ -1269,6 +1435,29 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeletePrices(int id)
+        {
+            var prs = prices.FirstOrDefault(p => p.Id == id);
+            DeletePrices(prs);
+        }
+
+        public void DeletePrices(Prices? pricesEntry)
+        {
+            if (pricesEntry == null)
+            {
+                Console.WriteLine("[ERROR] Prices entry not found.");
+                return;
+            }
+            if (prices.Remove(pricesEntry))
+            {
+                Console.WriteLine($"[INFO] Prices with ID {pricesEntry.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Prices with ID {pricesEntry.Id} not found.");
+            }
+        }
+
         public void ListPrices()
         {
             Console.ForegroundColor = SECTION_INDICATOR_COLOR;
@@ -1307,6 +1496,35 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeletePaymentTerms(int id)
+        {
+            var terms = paymentTerms.FirstOrDefault(t => t.Id == id);
+            DeletePaymentTerms(terms);
+        }
+
+        public void DeletePaymentTerms(PaymentTerms? terms)
+        {
+            if (terms == null)
+            {
+                Console.WriteLine("[ERROR] Payment terms not found.");
+                return;
+            }
+            // Safety: prevent deletion if referenced by bills
+            if (bills.Any(b => b.PaymentTerms.Id == terms.Id))
+            {
+                Console.WriteLine($"[ERROR] Cannot delete PaymentTerms {terms.Id} because it is referenced by a Bill.");
+                return;
+            }
+            if (paymentTerms.Remove(terms))
+            {
+                Console.WriteLine($"[INFO] Payment terms with ID {terms.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Payment terms with ID {terms.Id} not found.");
+            }
+        }
+
         public void ListPaymentTerms()
         {
             Console.ForegroundColor = SECTION_INDICATOR_COLOR;
@@ -1330,6 +1548,35 @@ namespace ERP_Fix
             return generated;
         }
 
+        public void DeleteSection(int id)
+        {
+            var sec = sections.FirstOrDefault(s => s.Id == id);
+            DeleteSection(sec);
+        }
+
+        public void DeleteSection(Section? section)
+        {
+            if (section == null)
+            {
+                Console.WriteLine("[ERROR] Section not found.");
+                return;
+            }
+            // Safety: prevent deletion if referenced by employees
+            if (employees.Any(e => e.worksIn.Id == section.Id))
+            {
+                Console.WriteLine($"[ERROR] Cannot delete Section {section.Id} because it is referenced by one or more Employees.");
+                return;
+            }
+            if (sections.Remove(section))
+            {
+                Console.WriteLine($"[INFO] Section with ID {section.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Section with ID {section.Id} not found.");
+            }
+        }
+
         public void ListSections()
         {
             Console.ForegroundColor = SECTION_INDICATOR_COLOR;
@@ -1351,6 +1598,29 @@ namespace ERP_Fix
             lastEmployeeId += 1;
 
             return generated;
+        }
+        
+        public void DeleteEmployee(int id)
+        {
+            var emp = employees.FirstOrDefault(e => e.Id == id);
+            DeleteEmployee(emp);
+        }
+
+        public void DeleteEmployee(Employee? employee)
+        {
+            if (employee == null)
+            {
+                Console.WriteLine("[ERROR] Employee not found.");
+                return;
+            }
+            if (employees.Remove(employee))
+            {
+                Console.WriteLine($"[INFO] Employee with ID {employee.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Employee with ID {employee.Id} not found.");
+            }
         }
         public void ListEmployees()
         {
@@ -1386,6 +1656,35 @@ namespace ERP_Fix
                 Console.WriteLine($"ID: {customer.Id}, Name: {customer.Name}");
             }
             Console.WriteLine("=========================");
+        }
+
+        public void DeleteCustomer(int id)
+        {
+            var cust = customers.FirstOrDefault(c => c.Id == id);
+            DeleteCustomer(cust);
+        }
+
+        public void DeleteCustomer(Customer? customer)
+        {
+            if (customer == null)
+            {
+                Console.WriteLine("[ERROR] Customer not found.");
+                return;
+            }
+            // Safety: prevent deletion if referenced by orders or bills
+            if (orders.Any(o => o.Customer.Id == customer.Id) || bills.Any(b => b.Customer.Id == customer.Id))
+            {
+                Console.WriteLine($"[ERROR] Cannot delete Customer {customer.Id} because it is referenced by Orders or Bills.");
+                return;
+            }
+            if (customers.Remove(customer))
+            {
+                Console.WriteLine($"[INFO] Customer with ID {customer.Id} has been deleted.");
+            }
+            else
+            {
+                Console.WriteLine($"[ERROR] Customer with ID {customer.Id} not found.");
+            }
         }
     }
     

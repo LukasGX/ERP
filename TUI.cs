@@ -6,8 +6,13 @@ using System.Linq.Expressions;
 using ERP_Fix;
 using Terminal.Gui;
 
+// TODO: deletion of elements
+// TODO: better error handling
+// TODO: responsive layout
+// TODO: help screen
 
-namespace ERP_Fix {
+namespace ERP_Fix
+{
     class TUI
     {
         public ERPManager? erpManager;
@@ -471,6 +476,13 @@ namespace ERP_Fix {
                 ColorScheme = schemes[2]
             };
 
+            var buttonDelete = new Button("Element löschen")
+            {
+                X = 2,
+                Y = 2,
+                ColorScheme = schemes[2]
+            };
+
             var buttonArticleOps = new Button("Artikeloperationen")
             {
                 X = 2,
@@ -481,35 +493,35 @@ namespace ERP_Fix {
             var buttonArticleScan = new Button("Artikel scannen")
             {
                 X = 2,
-                Y = 5,
+                Y = 4,
                 ColorScheme = schemes[2]
             };
 
             var buttonOwnCapital = new Button("Eigenkapital verwalten")
             {
                 X = 2,
-                Y = 7,
+                Y = 5,
                 ColorScheme = schemes[2]
             };
 
             var buttonSave = new Button("Speichern")
             {
                 X = 2,
-                Y = 9,
+                Y = 7,
                 ColorScheme = schemes[2]
             };
 
             var buttonClose = new Button("Schließen")
             {
                 X = 2,
-                Y = 11,
+                Y = 8,
                 ColorScheme = schemes[2]
             };
 
             var labelOwnCapital = new Label($"Eigenkapital: {erpManager.ownCapital:F2} €")
             {
                 X = 2,
-                Y = 13,
+                Y = 10,
                 ColorScheme = schemes[4]
             };
 
@@ -518,7 +530,7 @@ namespace ERP_Fix {
             var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
             {
                 X = 2,
-                Y = 14,
+                Y = 12,
                 ColorScheme = schemes[4]
             };
             win.Add(labelWindowSwitch);
@@ -526,12 +538,13 @@ namespace ERP_Fix {
             var labelExitProgram = new Label("Programm beenden mit Esc")
             {
                 X = 2,
-                Y = 15,
+                Y = 13,
                 ColorScheme = schemes[4]
             };
             win.Add(labelExitProgram);
 
             Action? buttonCreateClick = null;
+            Action? buttonDeleteClick = null;
             Action? buttonArticleOpsClick = null;
             Action? buttonArticleScanClick = null;
             Action? buttonOwnCapitalClick = null;
@@ -553,6 +566,15 @@ namespace ERP_Fix {
                 buttonCreate.Clicked += buttonCreateClick!;
                 win.Add(buttonCreate);
 
+                var buttonDelete = new Button("Element löschen")
+                {
+                    X = 2,
+                    Y = 2,
+                    ColorScheme = schemes[2]
+                };
+                buttonDelete.Clicked += buttonDeleteClick!;
+                win.Add(buttonDelete);
+
                 var buttonArticleOps = new Button("Artikeloperationen")
                 {
                     X = 2,
@@ -565,7 +587,7 @@ namespace ERP_Fix {
                 var buttonArticleScan = new Button("Artikel scannen")
                 {
                     X = 2,
-                    Y = 5,
+                    Y = 4,
                     ColorScheme = schemes[2]
                 };
                 buttonArticleScan.Clicked += buttonArticleScanClick;
@@ -574,7 +596,7 @@ namespace ERP_Fix {
                 var buttonOwnCapital = new Button("Eigenkapital verwalten")
                 {
                     X = 2,
-                    Y = 7,
+                    Y = 5,
                     ColorScheme = schemes[2]
                 };
                 buttonOwnCapital.Clicked += buttonOwnCapitalClick;
@@ -583,7 +605,7 @@ namespace ERP_Fix {
                 var buttonSave = new Button("Speichern")
                 {
                     X = 2,
-                    Y = 9,
+                    Y = 7,
                     ColorScheme = schemes[2]
                 };
                 buttonSave.Clicked += buttonSaveClick;
@@ -592,7 +614,7 @@ namespace ERP_Fix {
                 var buttonClose = new Button("Schließen")
                 {
                     X = 2,
-                    Y = 11,
+                    Y = 8,
                     ColorScheme = schemes[2]
                 };
                 buttonClose.Clicked += buttonCloseClick;
@@ -601,7 +623,7 @@ namespace ERP_Fix {
                 var labelOwnCapital = new Label($"Eigenkapital: {erpManager.ownCapital:F2} €")
                 {
                     X = 2,
-                    Y = 13,
+                    Y = 10,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelOwnCapital);
@@ -609,7 +631,7 @@ namespace ERP_Fix {
                 var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
                 {
                     X = 2,
-                    Y = 14,
+                    Y = 12,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelWindowSwitch);
@@ -617,7 +639,7 @@ namespace ERP_Fix {
                 var labelExitProgram = new Label("Programm beenden mit Esc")
                 {
                     X = 2,
-                    Y = 15,
+                    Y = 13,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelExitProgram);
@@ -630,6 +652,7 @@ namespace ERP_Fix {
             };
 
             buttonCreateClick = () => { CreatingElementMenu(win, schemes, DoAfter); };
+            buttonDeleteClick = () => { DeletingElementMenu(win, schemes, DoAfter); };
             buttonArticleOpsClick = () => { ArticleOperationsMenu(win, schemes, DoAfter); };
             buttonArticleScanClick = () => { ScanArticle(win, schemes, DoAfter); };
             buttonOwnCapitalClick = () => { ManageOwnCapitalMenu(win, schemes, DoAfter); };
@@ -638,6 +661,9 @@ namespace ERP_Fix {
 
             buttonCreate.Clicked += buttonCreateClick;
             win.Add(buttonCreate);
+
+            buttonDelete.Clicked += buttonDeleteClick;
+            win.Add(buttonDelete);
 
             buttonArticleOps.Clicked += buttonArticleOpsClick;
             win.Add(buttonArticleOps);
@@ -1367,7 +1393,7 @@ namespace ERP_Fix {
 
             Application.Top.SetNeedsDisplay();
         }
-        
+
         private void FillSelfOrderWindow(Window selfOrderWin, List<ColorScheme> schemes, bool showAll)
         {
             selfOrderWin.RemoveAll();
@@ -1483,7 +1509,7 @@ namespace ERP_Fix {
             detailWin.Add(new Label($"Verzugszins: {paymentTerms.PenaltyRate}%") { X = 2, Y = y++, ColorScheme = schemes[1] });
             detailWin.Add(new Label($"Absolute Mahngebühr: {paymentTerms.AbsolutePenalty}") { X = 2, Y = y++, ColorScheme = schemes[1] });
 
-            
+
             y++;
             var closeBtn = new Button("Schließen")
             {
@@ -1947,7 +1973,9 @@ namespace ERP_Fix {
                     var slot = erpManager.FindStorageSlot(a);
                     var info = new Label($"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? '-' : (char)0)})")
                     {
-                        X = Pos.Right(nameLabel) + 1, Y = y, ColorScheme = schemes[4]
+                        X = Pos.Right(nameLabel) + 1,
+                        Y = y,
+                        ColorScheme = schemes[4]
                     };
                     info.Text = $"(ID: {a.Id}, Anz. {a.Stock}, Lagerplatz: {(slot == null ? "-" : slot.Id.ToString())})";
                     w.Add(info);
@@ -2325,7 +2353,7 @@ namespace ERP_Fix {
             }
         }
 
-        // creation button click
+        // creation/deletion button click
         private void CreateArticleType(Window win, List<ColorScheme> schemes, Action doAfter)
         {
             win.RemoveAll();
@@ -2394,6 +2422,82 @@ namespace ERP_Fix {
 
             Application.Top?.SetNeedsDisplay();
         }
+        
+        private void DeleteArticleType(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            // Removed header label showing "ERP - <instance name>"
+
+            var appellLabel = new Label("Artikeltypen ID zum Löschen:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var idInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(idInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(idText) || !int.TryParse(idText, out int typeId))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                var at = erpManager!.FindArticleType(typeId);
+                if (at == null)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                erpManager.DeleteArticleType(at);
+
+                var finishedText = new Label("Der Artikeltyp wurde gelöscht.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Remove(appellLabel);
+                win.Remove(idInput);
+                win.Remove(sendButton);
+                win.Add(finishedText);
+
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
         private void CreateStorageSlot(Window win, List<ColorScheme> schemes, Action doAfter)
         {
             win.RemoveAll();
@@ -2421,6 +2525,306 @@ namespace ERP_Fix {
                 doAfter.Invoke();
             };
             win.Add(okButton);
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteStorageSlot(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            // Removed header label showing "ERP - <instance name>"
+
+            var appellLabel = new Label("Lagerplatz ID zum Löschen:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            };
+            win.Add(appellLabel);
+
+            var idInput = new TextField()
+            {
+                X = 2,
+                Y = 2,
+                Width = 40,
+                ColorScheme = schemes[1]
+            };
+            win.Add(idInput);
+
+            var sendButton = new Button("Ok")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(idText) || !int.TryParse(idText, out int slotId))
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                var ss = erpManager!.GetAllStorageSlots().FirstOrDefault(s => s.Id == slotId);
+                if (ss == null)
+                {
+                    doAfter.Invoke();
+                    return;
+                }
+
+                erpManager.DeleteStorageSlot(ss);
+
+                var finishedText = new Label("Der Lagerplatz wurde gelöscht.")
+                {
+                    X = 2,
+                    Y = 1,
+                    ColorScheme = schemes[3]
+                };
+                win.Remove(appellLabel);
+                win.Remove(idInput);
+                win.Remove(sendButton);
+                win.Add(finishedText);
+
+                var okButton = new Button("Ok")
+                {
+                    X = 2,
+                    Y = 3,
+                    ColorScheme = schemes[2]
+                };
+                okButton.Clicked += () =>
+                {
+                    doAfter.Invoke();
+                };
+                win.Add(okButton);
+            };
+            win.Add(sendButton);
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteArticle(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Artikel ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.FindArticle(id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteArticle(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Der Artikel wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteCustomer(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Kunden ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.FindCustomer(id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteCustomer(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Der Kunde wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteSection(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Abteilungs ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.FindSection(id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteSection(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Abteilung wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteEmployee(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Mitarbeiter ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllEmployees().FirstOrDefault(e => e.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteEmployee(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Der Mitarbeiter wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteOrder(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Bestell ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllOrders().FirstOrDefault(o => o.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteOrder(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Bestellung wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeletePriceList(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Preisliste ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllPrices().FirstOrDefault(p => p.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeletePrices(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Preisliste wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeletePaymentTerms(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Zahlungsbedingungs ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllPaymentTerms().FirstOrDefault(t => t.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeletePaymentTerms(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Zahlungsbedingungen wurden gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteBill(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Rechnungs ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllBills().FirstOrDefault(b => b.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteBill(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Rechnung wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
+
+            Application.Top?.SetNeedsDisplay();
+        }
+
+        private void DeleteSelfOrder(Window win, List<ColorScheme> schemes, Action doAfter)
+        {
+            win.RemoveAll();
+
+            var label = new Label("Eigenbestell ID zum Löschen:") { X = 2, Y = 1, ColorScheme = schemes[1] };
+            var idInput = new TextField() { X = 2, Y = 2, Width = 40, ColorScheme = schemes[1] };
+            var sendButton = new Button("Ok") { X = 2, Y = 4, ColorScheme = schemes[2] };
+            win.Add(label); win.Add(idInput); win.Add(sendButton);
+
+            sendButton.Clicked += () =>
+            {
+                var idText = idInput.Text?.ToString() ?? string.Empty;
+                if (!int.TryParse(idText, out int id)) { doAfter.Invoke(); return; }
+                var entity = erpManager!.GetAllSelfOrders().FirstOrDefault(s => s.Id == id);
+                if (entity == null) { doAfter.Invoke(); return; }
+                erpManager.DeleteSelfOrder(entity);
+
+                win.Remove(label); win.Remove(idInput); win.Remove(sendButton);
+                win.Add(new Label("Die Eigenbestellung wurde gelöscht.") { X = 2, Y = 1, ColorScheme = schemes[3] });
+                var ok = new Button("Ok") { X = 2, Y = 3, ColorScheme = schemes[2] }; ok.Clicked += () => doAfter.Invoke(); win.Add(ok);
+            };
 
             Application.Top?.SetNeedsDisplay();
         }
@@ -3686,6 +4090,43 @@ namespace ERP_Fix {
             Application.Top.SetNeedsDisplay();
         }
 
+        private void DeletingElementMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            var buttons = new Dictionary<string, Action>
+            {
+                { "Zurück", () => { DoAfter(); } },
+                { "Artikeltyp", () => { DeleteArticleType(win, schemes, DoAfter); } },
+                { "Lagerplatz", () => { DeleteStorageSlot(win, schemes, DoAfter); } },
+                { "Artikel", () => { DeleteArticle(win, schemes, DoAfter); } },
+                { "Kunde", () => { DeleteCustomer(win, schemes, DoAfter); } },
+                { "Abteilung", () => { DeleteSection(win, schemes, DoAfter); } },
+                { "Mitarbeiter", () => { DeleteEmployee(win, schemes, DoAfter); } },
+                { "Bestellung", () => { DeleteOrder(win, schemes, DoAfter); } },
+                { "Preisliste", () => { DeletePriceList(win, schemes, DoAfter); } },
+                { "Zahlungsbedingungen", () => { DeletePaymentTerms(win, schemes, DoAfter); } },
+                { "Rechnung", () => { DeleteBill(win, schemes, DoAfter); } },
+                { "Eigenbestellung", () => { DeleteSelfOrder(win, schemes, DoAfter); } }
+            };
+
+            int posY = 1;
+            foreach (var kv in buttons)
+            {
+                var btn = new Button(kv.Key)
+                {
+                    X = 2,
+                    Y = posY,
+                    ColorScheme = schemes[2]
+                };
+                btn.Clicked += () => kv.Value.Invoke();
+                win.Add(btn);
+                posY += 2;
+            }
+
+            Application.Top.SetNeedsDisplay();
+        }
+
         private void ArticleOperationsMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
         {
             win.RemoveAll();
@@ -4162,7 +4603,7 @@ namespace ERP_Fix {
             };
             win.Add(sendButton);
         }
-        
+
         private void RestockArticle(Window win, List<ColorScheme> schemes, Action DoAfter, int? presetId = null)
         {
             win.RemoveAll();
@@ -4438,7 +4879,7 @@ namespace ERP_Fix {
 
             if (presetId.HasValue)
             {
-                slotIdInput.SetFocus();   
+                slotIdInput.SetFocus();
             }
 
             var sendButton = new Button("Ok")
