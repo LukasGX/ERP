@@ -22,6 +22,20 @@ namespace ERP_Fix
         private readonly Dictionary<string, (int X, int Y, int W, int H)> defaultLayouts = new();
         // Navigation: cycle focus across secondary windows to access their controls via keyboard
         private bool secondaryNavRegistered = false;
+    // Track last computed heights of each secondary window for responsive packing
+    private readonly Dictionary<string, int> windowHeights = new();
+    // Dynamic cap for how many items to show in compact windows (non-expanded)
+    private int compactMaxItems = 5; // adjusted down on tiny terminals to avoid vertical overlap
+    // Responsive layout state
+    private string? expandedKey = null; // which secondary window is expanded (if any)
+    private bool resizeHooked = false;
+    // Layout tuning
+    private const int MinLeftPanel = 28; // min width for the main (left) panel
+    private const int MaxLeftPanel = 60; // max width for the main (left) panel
+    private const int MinCellWidth = 28; // minimal width per secondary window cell
+    private const int CellHeight = 7;    // fixed height used by mini windows
+    private const int HGap = 1;          // gap between columns
+    private const int VGap = 1;          // gap between rows
         public static bool ShowCompletedOrders = false;
         public static bool ShowCancelledOrders = false;
 
@@ -467,8 +481,7 @@ namespace ERP_Fix
             var instanceTitle = erpManager!.InstanceName ?? inputText ?? "unnamed";
             win.Title = $"ERP - {instanceTitle}";
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             var buttonCreate = new Button("Element erstellen")
             {
                 X = 2,
@@ -555,8 +568,7 @@ namespace ERP_Fix
             {
                 win.RemoveAll();
                 win.Title = $"ERP - {erpManager!.InstanceName}";
-                // Removed header label showing "ERP - <instance name>"
-
+                
                 var buttonCreate = new Button("Element erstellen")
                 {
                     X = 2,
@@ -828,7 +840,10 @@ namespace ERP_Fix
             // Enable keyboard navigation across secondary windows (F6/Shift+F6)
             RegisterSecondaryWindowNavigation();
 
+            // Responsive: hook resize and lay out windows
+            SetupResponsiveLayout();
             fillAllWindows();
+            LayoutWindows();
             Application.Top.SetNeedsDisplay();
         }
 
@@ -853,9 +868,9 @@ namespace ERP_Fix
 
             var articleTypes = erpManager!.GetAllArticleTypes();
             int total = articleTypes.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total); // dynamic cap in compact view
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -891,7 +906,9 @@ namespace ERP_Fix
                 articleTypeWin.Add(showAllBtn);
             }
 
-            articleTypeWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            articleTypeWin.Height = h;
+            windowHeights["articleType"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -902,9 +919,9 @@ namespace ERP_Fix
 
             var storageSlots = erpManager!.GetAllStorageSlots();
             int total = storageSlots.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -940,7 +957,9 @@ namespace ERP_Fix
                 storageSlotWin.Add(showAllBtn);
             }
 
-            storageSlotWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            storageSlotWin.Height = h;
+            windowHeights["storageSlot"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -951,9 +970,9 @@ namespace ERP_Fix
 
             var articles = erpManager!.GetAllArticles();
             int total = articles.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -990,7 +1009,9 @@ namespace ERP_Fix
                 articleWin.Add(showAllBtn);
             }
 
-            articleWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            articleWin.Height = h;
+            windowHeights["article"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1001,9 +1022,9 @@ namespace ERP_Fix
 
             var customers = erpManager!.GetAllCustomers();
             int total = customers.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1039,7 +1060,9 @@ namespace ERP_Fix
                 customerWin.Add(showAllBtn);
             }
 
-            customerWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            customerWin.Height = h;
+            windowHeights["customer"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1050,9 +1073,9 @@ namespace ERP_Fix
 
             var sections = erpManager!.GetAllSections();
             int total = sections.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1088,7 +1111,9 @@ namespace ERP_Fix
                 sectionWin.Add(showAllBtn);
             }
 
-            sectionWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            sectionWin.Height = h;
+            windowHeights["section"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1099,9 +1124,9 @@ namespace ERP_Fix
 
             var employees = erpManager!.GetAllEmployees();
             int total = employees.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1137,7 +1162,9 @@ namespace ERP_Fix
                 employeeWin.Add(showAllBtn);
             }
 
-            employeeWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            employeeWin.Height = h;
+            windowHeights["employee"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1154,9 +1181,9 @@ namespace ERP_Fix
                 .ToList();
 
             int total = visibleOrders.Count;
-            bool useShowAllButton = total >= 7;
-            int toShow = Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = Math.Min(cap, total);
+            bool useShowAllButton = total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1220,7 +1247,9 @@ namespace ERP_Fix
                 orderWin.Add(showAllBtn);
             }
 
-            orderWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            orderWin.Height = h;
+            windowHeights["order"] = h;
             Application.Top.SetNeedsDisplay();
         }
 
@@ -1230,9 +1259,9 @@ namespace ERP_Fix
 
             var priceLists = erpManager!.GetAllPrices();
             int total = priceLists.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1279,7 +1308,9 @@ namespace ERP_Fix
                 pricesWin.Add(showAllBtn);
             }
 
-            pricesWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            pricesWin.Height = h;
+            windowHeights["prices"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1290,9 +1321,9 @@ namespace ERP_Fix
 
             var paymentTerms = erpManager!.GetAllPaymentTerms();
             int total = paymentTerms.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1339,7 +1370,9 @@ namespace ERP_Fix
                 paymentTermsWin.Add(showAllBtn);
             }
 
-            paymentTermsWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            paymentTermsWin.Height = h;
+            windowHeights["paymentTerms"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1350,9 +1383,9 @@ namespace ERP_Fix
 
             var bills = erpManager!.GetAllBills();
             int total = bills.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1389,7 +1422,9 @@ namespace ERP_Fix
                 billWin.Add(showAllBtn);
             }
 
-            billWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            billWin.Height = h;
+            windowHeights["bill"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1400,9 +1435,9 @@ namespace ERP_Fix
 
             var selfOrders = erpManager!.GetAllSelfOrders();
             int total = selfOrders.Count;
-            bool useShowAllButton = !showAll && total >= 7;
-            int toShow = showAll ? total : Math.Min(6, total);
-            if (useShowAllButton) toShow = 5;
+            int cap = showAll ? total : Math.Max(0, Math.Min(compactMaxItems, 5));
+            int toShow = showAll ? total : Math.Min(cap, total);
+            bool useShowAllButton = !showAll && total > toShow;
 
             for (int i = 0; i < toShow; i++)
             {
@@ -1475,7 +1510,9 @@ namespace ERP_Fix
                 selfOrderWin.Add(showAllBtn);
             }
 
-            selfOrderWin.Height = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            int h = 4 + (useShowAllButton ? (toShow + 1) : toShow);
+            selfOrderWin.Height = h;
+            windowHeights["selfOrder"] = h;
 
             Application.Top.SetNeedsDisplay();
         }
@@ -1492,7 +1529,7 @@ namespace ERP_Fix
 
             var detailWin = new Window($"Zahlungsbedingung {paymentTerms.Id} - Details")
             {
-                X = 42,
+                X = mainWindow != null ? Pos.Right(mainWindow) : 42,
                 Y = 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
@@ -1529,6 +1566,7 @@ namespace ERP_Fix
                 {
                     FillPaymentTermsWindow(pw, Schemes(), false);
                 }
+                LayoutWindows();
                 Application.Top.SetNeedsDisplay();
             };
             detailWin.Add(closeBtn);
@@ -1550,7 +1588,7 @@ namespace ERP_Fix
 
             var detailWin = new Window($"Preisliste {prices.Id} - Details")
             {
-                X = 42,
+                X = mainWindow != null ? Pos.Right(mainWindow) : 42,
                 Y = 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
@@ -1600,6 +1638,7 @@ namespace ERP_Fix
                 {
                     FillPricesWindow(pw, Schemes(), false);
                 }
+                LayoutWindows();
                 Application.Top.SetNeedsDisplay();
             };
             detailWin.Add(closeBtn);
@@ -1621,7 +1660,7 @@ namespace ERP_Fix
 
             var detailWin = new Window($"Bestellung {order.Id} - Details")
             {
-                X = 42,
+                X = mainWindow != null ? Pos.Right(mainWindow) : 42,
                 Y = 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
@@ -1714,6 +1753,7 @@ namespace ERP_Fix
                 {
                     FillOrderWindow(ow, Schemes());
                 }
+                LayoutWindows();
                 Application.Top.SetNeedsDisplay();
             };
             detailWin.Add(closeBtn);
@@ -1770,7 +1810,7 @@ namespace ERP_Fix
 
             var detailWin = new Window($"Eigenbestellung {selfOrder.Id} - Details")
             {
-                X = 42,
+                X = mainWindow != null ? Pos.Right(mainWindow) : 42,
                 Y = 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
@@ -1837,6 +1877,7 @@ namespace ERP_Fix
                 {
                     FillSelfOrderWindow(sw, Schemes(), false);
                 }
+                LayoutWindows();
                 Application.Top.SetNeedsDisplay();
             };
             detailWin.Add(closeBtn);
@@ -1896,10 +1937,11 @@ namespace ERP_Fix
 
             var w = windows[key];
             // Maximize selected window to the right of main window
-            w.X = 42;
+            w.X = mainWindow != null ? Pos.Right(mainWindow) : 42;
             w.Y = 1;
             w.Width = Dim.Fill();
             w.Height = Dim.Fill();
+            expandedKey = key;
 
             // Paginated render with a back button
             int page = 0;
@@ -2155,6 +2197,7 @@ namespace ERP_Fix
                     break;
             }
 
+            LayoutWindows();
             Application.Top?.SetNeedsDisplay();
         }
 
@@ -2191,20 +2234,201 @@ namespace ERP_Fix
 
         private void RestoreExtraWindowsLayout(List<ColorScheme> schemes)
         {
-            // Restore sizes/positions and show all windows, then refill in capped mode
+            // Return to normal responsive layout
+            expandedKey = null;
             foreach (var kv in windows)
             {
-                if (defaultLayouts.TryGetValue(kv.Key, out var layout))
-                {
-                    kv.Value.X = layout.X;
-                    kv.Value.Y = layout.Y;
-                    kv.Value.Width = layout.W;
-                    kv.Value.Height = layout.H;
-                }
                 try { kv.Value.Visible = true; } catch { }
             }
             fillAllWindows();
+            LayoutWindows();
             Application.Top?.SetNeedsDisplay();
+        }
+
+        // Compute and apply a responsive layout for the main window and all secondary windows
+        private void LayoutWindows()
+        {
+            if (mainWindow == null || windows.Count == 0) return;
+
+            // Current terminal size
+            int cols = Application.Driver.Cols;
+            int rows = Application.Driver.Rows;
+
+            // Left panel width: 1/3 of screen, clamped
+            int left = Math.Clamp(cols / 3, MinLeftPanel, MaxLeftPanel);
+
+            // Place main window (left side)
+            mainWindow.X = 0;
+            mainWindow.Y = 1; // keep a top margin
+            mainWindow.Width = Dim.Sized(left);
+            mainWindow.Height = Dim.Fill();
+
+            // Right area
+            int rightX = left + HGap;
+            int availWidth = Math.Max(0, cols - rightX);
+
+            if (!string.IsNullOrEmpty(expandedKey) && windows.TryGetValue(expandedKey, out var expanded))
+            {
+                // Expanded window fills the right side
+                expanded.X = rightX;
+                expanded.Y = 1;
+                expanded.Width = Dim.Fill();
+                expanded.Height = Dim.Fill();
+                foreach (var kv in windows)
+                {
+                    if (kv.Key != expandedKey)
+                    {
+                        try { kv.Value.Visible = false; } catch { }
+                    }
+                }
+                return;
+            }
+
+            // Normal layout for secondary windows: prioritize rows (vertical stacking)
+            foreach (var kv in windows)
+            {
+                try { kv.Value.Visible = true; } catch { }
+            }
+
+            // Determine how many rows fit per column using a compact fixed cell height
+            int usableHeight = Math.Max(1, rows - 2); // leave a tiny top/bottom margin
+            // Decide a dynamic compact item cap to fit all windows within up to 3 columns
+            // Compute totals for each window
+            var totals = GetWindowTotals();
+            int chosenCap = 5;
+            int columns = 1;
+            Dictionary<string, int> plannedHeights = new();
+
+            int TryPackAndGetColumns(int cap, out Dictionary<string, int> heights)
+            {
+                heights = new Dictionary<string, int>();
+                int colUsedLocal = 1;
+                int curHeightLocal = 0;
+                foreach (var key in secondaryOrder)
+                {
+                    if (!windows.ContainsKey(key)) continue;
+                    int totalItems = totals.TryGetValue(key, out var t) ? t : 0;
+                    int toShowLocal = Math.Min(cap, Math.Max(0, totalItems));
+                    bool showBtn = totalItems > toShowLocal;
+                    int hLocal = 4 + (showBtn ? (toShowLocal + 1) : toShowLocal);
+                    heights[key] = hLocal;
+                    if (curHeightLocal == 0 || curHeightLocal + hLocal + VGap <= usableHeight)
+                    {
+                        curHeightLocal = (curHeightLocal == 0) ? hLocal : curHeightLocal + hLocal + VGap;
+                    }
+                    else
+                    {
+                        colUsedLocal++;
+                        curHeightLocal = hLocal;
+                        if (colUsedLocal >= 4) break; // if exceeds 3, bail early
+                    }
+                }
+                return colUsedLocal;
+            }
+
+            // Try from max cap (5) down to 0 to fit within 3 columns
+            for (int cap = 5; cap >= 0; cap--)
+            {
+                int usedCols = TryPackAndGetColumns(cap, out var heights);
+                if (usedCols <= 3)
+                {
+                    chosenCap = cap;
+                    plannedHeights = heights;
+                    columns = Math.Clamp(usedCols, 1, 3);
+                    break;
+                }
+            }
+
+            // If cap changed, refill compact windows so content and windowHeights match
+            if (chosenCap != compactMaxItems)
+            {
+                compactMaxItems = chosenCap;
+                fillAllWindows();
+                // refresh plannedHeights from actual heights if not computed
+                plannedHeights = new Dictionary<string, int>();
+                foreach (var key in secondaryOrder)
+                {
+                    if (!windows.ContainsKey(key)) continue;
+                    if (windowHeights.TryGetValue(key, out var hh)) plannedHeights[key] = hh;
+                }
+            }
+
+            int cellWidth = columns > 0 ? (availWidth - HGap * (columns - 1)) / columns : availWidth;
+
+            // Second pass: actual placement with computed widths
+            int colIdx = 0;
+            int curX = rightX;
+            int curY = 1;
+            int usedHeight = 0;
+            foreach (var key in secondaryOrder)
+            {
+                if (!windows.TryGetValue(key, out var w)) continue;
+                int h = plannedHeights.TryGetValue(key, out var hh) ? hh : (windowHeights.TryGetValue(key, out var hh2) ? hh2 : CellHeight);
+
+                if (usedHeight > 0 && usedHeight + h + VGap > usableHeight)
+                {
+                    // move to next column
+                    colIdx++;
+                    if (colIdx >= columns)
+                    {
+                        // No more columns available: hide remaining windows to avoid overlay
+                        try { w.Visible = false; } catch { }
+                        continue;
+                    }
+                    curX = rightX + colIdx * (cellWidth + HGap);
+                    curY = 1;
+                    usedHeight = 0;
+                }
+
+                w.X = curX;
+                w.Y = curY;
+                w.Width = Dim.Sized(cellWidth);
+                w.Height = Dim.Sized(h);
+
+                curY += h + VGap;
+                usedHeight = (usedHeight == 0) ? h : usedHeight + h + VGap;
+            }
+        }
+
+        // Hook terminal resize once
+        private void SetupResponsiveLayout()
+        {
+            if (resizeHooked) return;
+            try
+            {
+                Application.Resized += (_) => LayoutWindows();
+                resizeHooked = true;
+            }
+            catch
+            {
+                // Fallback: periodically reflow
+                Application.MainLoop.AddTimeout(TimeSpan.FromMilliseconds(500), _ => { LayoutWindows(); return true; });
+                resizeHooked = true;
+            }
+        }
+
+        // Gather total item counts for each secondary window, respecting current filters
+        private Dictionary<string, int> GetWindowTotals()
+        {
+            var totals = new Dictionary<string, int>();
+            try { totals["articleType"] = erpManager!.GetAllArticleTypes().Count; } catch { totals["articleType"] = 0; }
+            try { totals["storageSlot"] = erpManager!.GetAllStorageSlots().Count; } catch { totals["storageSlot"] = 0; }
+            try { totals["article"] = erpManager!.GetAllArticles().Count; } catch { totals["article"] = 0; }
+            try { totals["customer"] = erpManager!.GetAllCustomers().Count; } catch { totals["customer"] = 0; }
+            try { totals["section"] = erpManager!.GetAllSections().Count; } catch { totals["section"] = 0; }
+            try { totals["employee"] = erpManager!.GetAllEmployees().Count; } catch { totals["employee"] = 0; }
+            try
+            {
+                totals["order"] = erpManager!.GetAllOrders()
+                    .Where(o => o.Status == OrderStatus.Pending || (ShowCompletedOrders && o.Status == OrderStatus.Completed) || (ShowCancelledOrders && o.Status == OrderStatus.Cancelled))
+                    .Count();
+            }
+            catch { totals["order"] = 0; }
+            try { totals["prices"] = erpManager!.GetAllPrices().Count; } catch { totals["prices"] = 0; }
+            try { totals["paymentTerms"] = erpManager!.GetAllPaymentTerms().Count; } catch { totals["paymentTerms"] = 0; }
+            try { totals["bill"] = erpManager!.GetAllBills().Count; } catch { totals["bill"] = 0; }
+            try { totals["selfOrder"] = erpManager!.GetAllSelfOrders().Count; } catch { totals["selfOrder"] = 0; }
+            return totals;
         }
 
         // Full render helpers (all entries, no cap), starting at specified Y
@@ -2358,8 +2582,7 @@ namespace ERP_Fix
         {
             win.RemoveAll();
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             var appellLabel = new Label("Name des Artikeltypen:")
             {
                 X = 2,
@@ -2427,8 +2650,7 @@ namespace ERP_Fix
         {
             win.RemoveAll();
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             var appellLabel = new Label("Artikeltypen ID zum Löschen:")
             {
                 X = 2,
@@ -2502,8 +2724,7 @@ namespace ERP_Fix
         {
             win.RemoveAll();
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             StorageSlot storageSlot = erpManager!.NewStorageSlot();
 
             var finishedText = new Label("Der Lagerplatz wurde erstellt.")
@@ -2533,8 +2754,7 @@ namespace ERP_Fix
         {
             win.RemoveAll();
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             var appellLabel = new Label("Lagerplatz ID zum Löschen:")
             {
                 X = 2,
@@ -2833,8 +3053,7 @@ namespace ERP_Fix
         {
             win.RemoveAll();
 
-            // Removed header label showing "ERP - <instance name>"
-
+            
             var appellLabel = new Label("Artikeltyp ID:")
             {
                 X = 2,
@@ -4054,8 +4273,7 @@ namespace ERP_Fix
         private void CreatingElementMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
         {
             win.RemoveAll();
-            // Removed header label showing "ERP - <instance name>"
-
+            
             Dictionary<string, Action> buttons = new()
             {
                 { "Zurück", () => { DoAfter(); } },
@@ -4168,7 +4386,7 @@ namespace ERP_Fix
             // Create or show a full-size window to the right of the main window
             var scanWin = new Window("Artikel scannen")
             {
-                X = 42,
+                X = mainWindow != null ? Pos.Right(mainWindow) : 42,
                 Y = 1,
                 Width = Dim.Fill(),
                 Height = Dim.Fill(),
@@ -4184,8 +4402,9 @@ namespace ERP_Fix
                 {
                     try { kv.Value.Visible = true; } catch { }
                 }
-                // Refresh quick lists
+                // Refresh quick lists and layout
                 fillAllWindows();
+                LayoutWindows();
                 Application.Top.SetNeedsDisplay();
             }
 
