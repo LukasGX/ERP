@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="FreeSpire.Barcode" Version="6.6.0" />
+    <PackageReference Include="QuestPDF" Version="2025.7.3" />
     <PackageReference Include="Terminal.Gui" Version="1.19.0" />
   </ItemGroup>
 

@@ -11,6 +11,11 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Spire.Barcode;
 using System.Diagnostics;
+using QuestPDF.Fluent;
+using QuestPDF.Infrastructure;
+using QuestPDF.Helpers;
+
+// TODO: Add Company Information and PDF Generation to TUI
 
 namespace ERP_Fix
 {
@@ -21,6 +26,9 @@ namespace ERP_Fix
 
         static void Main(string[] args)
         {
+            PDF.Bill();
+            return;
+
             // Catch any unhandled exception so the console doesn’t close instantly when launched by double-click.
             AppDomain.CurrentDomain.UnhandledException += (sender, evt) =>
             {
@@ -85,9 +93,6 @@ namespace ERP_Fix
                 }
                 catch { /* ignore */ }
             }
-
-            // ERPManager erpManager = new ERPManager("STD");
-            // erpManager.Start();
         }
 
         private static void ShowFatalError(string header, Exception? ex)
@@ -127,8 +132,8 @@ namespace ERP_Fix
         public string InstanceName { get; }
         public string FileBaseName => MakeFileSafe(InstanceName).ToLowerInvariant();
 
-        [Obsolete("Use ERPManager(string instanceName) to ensure the instance is properly named.")]
-        public ERPManager() : this("Unnamed") { }
+        // Convenience default constructor for callers that don't pass an instance name
+        public ERPManager() : this("default") { }
 
         public ERPManager(string instanceName)
         {
@@ -136,6 +141,9 @@ namespace ERP_Fix
                 throw new ArgumentException("Instance name cannot be empty.", nameof(instanceName));
             InstanceName = instanceName;
         }
+
+        // Company
+        private Company? company;
 
         // Warehousing
         private List<Article> articles = new List<Article>();
@@ -327,6 +335,11 @@ namespace ERP_Fix
             currentCurrencyFormat.CurrencyDecimalDigits = 2;
         }
 
+        public void SetCompany(string companyName, string street, string city, string postalCode, string country, string email, string phoneNumber, string bankName, string iban, string bic)
+        {
+            company = new Company(companyName, new Address(street, city, postalCode, country), email, phoneNumber, new BankInformation(bankName, iban, bic));
+        }
+
         public string FormatAmount(double amount)
         {
             return amount.ToString("C", currentCurrencyFormat);
@@ -375,6 +388,15 @@ namespace ERP_Fix
 
                 File.WriteAllText(targetPath, json, Encoding.UTF8);
                 Console.WriteLine($"[INFO] Instance '{InstanceName}' saved to {targetPath}");
+
+                // Also write a separate TOP SECRET secrets file with Company and Bank info
+                var secrets = BuildSecretsSnapshot();
+                var secretsJson = JsonSerializer.Serialize(secrets, options);
+                var secretsPath = Path.Combine(
+                    Path.GetDirectoryName(targetPath) ?? Directory.GetCurrentDirectory(),
+                    $"{Path.GetFileNameWithoutExtension(targetPath)}.erps");
+                File.WriteAllText(secretsPath, secretsJson, Encoding.UTF8);
+                Console.WriteLine($"[INFO] Saved secrets to '{secretsPath}'. Keep this file PRIVATE.");
             }
             catch (Exception ex)
             {
@@ -421,7 +443,39 @@ namespace ERP_Fix
                 var snapshot = JsonSerializer.Deserialize<ERPInstanceSnapshot>(json, options)
                                ?? throw new InvalidDataException("Failed to parse .erp snapshot.");
 
-                return FromSnapshot(snapshot);
+                var mgr = FromSnapshot(snapshot);
+
+                // Try to hydrate company + bank info from the optional .erps (secrets) file
+                try
+                {
+                    string secretsPath = Path.Combine(
+                        Path.GetDirectoryName(targetPath) ?? Directory.GetCurrentDirectory(),
+                        $"{Path.GetFileNameWithoutExtension(targetPath)}.erps");
+                    if (File.Exists(secretsPath))
+                    {
+                        string secretsJson = File.ReadAllText(secretsPath, Encoding.UTF8);
+                        var secrets = JsonSerializer.Deserialize<ERPSecretsSnapshot>(secretsJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        var c = secrets?.Company;
+                        if (c != null)
+                        {
+                            var addr = c.Address;
+                            var bank = c.BankInfo;
+                            mgr.company = new Company(
+                                c.Name ?? string.Empty,
+                                new Address(addr?.Street ?? string.Empty, addr?.City ?? string.Empty, addr?.PostalCode ?? string.Empty, addr?.Country ?? string.Empty),
+                                c.Email ?? string.Empty,
+                                c.PhoneNumber ?? string.Empty,
+                                new BankInformation(bank?.BankName ?? string.Empty, bank?.IBAN ?? string.Empty, bank?.BIC ?? string.Empty)
+                            );
+                        }
+                    }
+                }
+                catch (Exception sex)
+                {
+                    Console.WriteLine($"[WARN] Failed to read secrets file: {sex.Message}");
+                }
+
+                return mgr;
             }
             catch (Exception ex)
             {
@@ -832,6 +886,42 @@ namespace ERP_Fix
             };
         }
 
+        private ERPSecretsSnapshot BuildSecretsSnapshot()
+        {
+            DTO_Company? dtoCompany = null;
+            if (company != null)
+            {
+                dtoCompany = new DTO_Company
+                {
+                    Name = company.Name ?? string.Empty,
+                    Email = company.Email ?? string.Empty,
+                    PhoneNumber = company.PhoneNumber ?? string.Empty,
+                    Address = new DTO_Address
+                    {
+                        Street = company.Address?.Street ?? string.Empty,
+                        City = company.Address?.City ?? string.Empty,
+                        PostalCode = company.Address?.PostalCode ?? string.Empty,
+                        Country = company.Address?.Country ?? string.Empty
+                    },
+                    BankInfo = new DTO_BankInformation
+                    {
+                        BankName = company.BankInfo?.BankName ?? string.Empty,
+                        IBAN = company.BankInfo?.IBAN ?? string.Empty,
+                        BIC = company.BankInfo?.BIC ?? string.Empty
+                    }
+                };
+            }
+
+            return new ERPSecretsSnapshot
+            {
+                SchemaVersion = 1,
+                InstanceName = this.InstanceName,
+                FileBaseName = this.FileBaseName,
+                Warning = "TOP SECRET: This file contains sensitive company and bank information. Protect it and do NOT share or commit it.",
+                Company = dtoCompany
+            };
+        }
+
         // jobs
         public Dictionary<ArticleType, int> SuggestOrders()
         {
@@ -859,6 +949,8 @@ namespace ERP_Fix
 
             return generated;
         }
+
+
 
         // reveal internal lists
         public int GetArticleCount()
@@ -999,7 +1091,7 @@ namespace ERP_Fix
             do
             {
                 newId = rnd.NextInt64(100000000000000, 999999999999999);
-            } 
+            }
             while (ScannerIds.Contains(newId));
 
             ScannerIds.Add(newId);
@@ -1662,7 +1754,7 @@ namespace ERP_Fix
 
             return generated;
         }
-        
+
         public void DeleteEmployee(int id)
         {
             var emp = employees.FirstOrDefault(e => e.Id == id);
@@ -1750,11 +1842,43 @@ namespace ERP_Fix
             }
         }
     }
-    
+
+    public class Company
+    {
+        public string Name { get; set; }
+        public Address Address { get; set; }
+        public string Email { get; set; }
+        public string PhoneNumber { get; set; }
+        public BankInformation BankInfo { get; set; }
+
+        public Company(string name, Address address, string email, string phoneNumber, BankInformation bankInfo)
+        {
+            Name = name;
+            Address = address;
+            Email = email;
+            PhoneNumber = phoneNumber;
+            BankInfo = bankInfo;
+        }
+    }
+
+    public class BankInformation
+    {
+        public string BankName { get; set; }
+        public string IBAN { get; set; }
+        public string BIC { get; set; }
+
+        public BankInformation(string bankName, string iban, string bic)
+        {
+            BankName = bankName;
+            IBAN = iban;
+            BIC = bic;
+        }
+    }
+
     // superior class
     public class ERPItem
     {
-        
+
     }
 
     public class ArticleSimilar : ERPItem
@@ -2108,6 +2232,42 @@ namespace ERP_Fix
         public List<DTO_Customer> Customers { get; set; } = new();
     }
 
+    // =========================
+    // DTOs for .erps (secrets) JSON format
+    // =========================
+    internal class ERPSecretsSnapshot
+    {
+        public int SchemaVersion { get; set; }
+        public string InstanceName { get; set; } = string.Empty;
+        public string FileBaseName { get; set; } = string.Empty;
+        public string Warning { get; set; } = string.Empty;
+        public DTO_Company? Company { get; set; }
+    }
+
+    internal class DTO_Company
+    {
+        public string Name { get; set; } = string.Empty;
+        public DTO_Address? Address { get; set; }
+        public string Email { get; set; } = string.Empty;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public DTO_BankInformation? BankInfo { get; set; }
+    }
+
+    internal class DTO_Address
+    {
+        public string Street { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string PostalCode { get; set; } = string.Empty;
+        public string Country { get; set; } = string.Empty;
+    }
+
+    internal class DTO_BankInformation
+    {
+        public string BankName { get; set; } = string.Empty;
+        public string IBAN { get; set; } = string.Empty;
+        public string BIC { get; set; } = string.Empty;
+    }
+
     internal class DTO_LastIds
     {
         public int LastStockId { get; set; }
@@ -2266,5 +2426,102 @@ namespace ERP_Fix
                 }
             }
         }
+    }
+
+    public class PDF
+    {
+        private static void Settings()
+        {
+            QuestPDF.Settings.License = LicenseType.Community;
+        }
+
+        public static void Bill()
+        {
+            Settings();
+
+            Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Size(PageSizes.A4);
+                    page.Margin(2, Unit.Centimetre);
+                    page.DefaultTextStyle(x => x.FontSize(11));
+                    page.Header().Row(header =>
+                    {
+                        // Left: Invoice title and company
+                        header.RelativeItem().Column(col =>
+                        {
+                            col.Item().Text("RECHNUNG").FontSize(24).Bold().FontColor(Colors.Blue.Medium);
+                            col.Item().Text("Musterfirma GmbH").Bold();
+                            col.Item().Text("Musterstraße 1\n12345 Musterstadt");
+                            col.Item().Text("info@musterfirma.de\n+49 123 4567890");
+                        });
+
+                        // Right: Invoice metadata
+                        header.ConstantItem(200).Column(col =>
+                        {
+                            col.Item().Text("Rechnungsnr: 0001").AlignRight();
+                            col.Item().Text("Datum: 21.10.2025").AlignRight();
+                            col.Item().Text("Kunde: Erika Mustermann").AlignRight();
+                            col.Item().Text("Musterweg 11\n12345 Musterstadt").AlignRight();
+                        });
+                    });
+
+                    page.Content().PaddingVertical(20).Column(content =>
+                    {
+                        // Table header
+                        content.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(4);
+                                columns.RelativeColumn(1);
+                                columns.RelativeColumn(2);
+                                columns.RelativeColumn(2);
+                            });
+
+                            // Header row
+                            table.Cell().Element(CellStyleHeader).Text("Produkt").SemiBold();
+                            table.Cell().Element(CellStyleHeader).Text("Anzahl").SemiBold();
+                            table.Cell().Element(CellStyleHeader).Text("Stückpreis").SemiBold();
+                            table.Cell().Element(CellStyleHeader).Text("Preis").SemiBold();
+
+                            // First item row
+                            table.Cell().Element(CellStyle).Text("Mütze");
+                            table.Cell().Element(CellStyle).Text("2");
+                            table.Cell().Element(CellStyle).Text("20,00 €");
+                            table.Cell().Element(CellStyle).Text("40,00 €");
+
+                            // Second item row
+                            table.Cell().Element(CellStyle).Text("Jacke");
+                            table.Cell().Element(CellStyle).Text("1");
+                            table.Cell().Element(CellStyle).Text("80,00 €");
+                            table.Cell().Element(CellStyle).Text("80,00 €");
+
+                            // Total row
+                            table.Cell().ColumnSpan(3).Element(CellStyle).AlignRight().Text("Gesamt:").SemiBold();
+                            table.Cell().Element(CellStyle).Text("120,00 €").SemiBold();
+                        });
+
+                        // Payment info & thanks
+                        content.Item().PaddingTop(25).Text("Bitte überweisen Sie den Betrag innerhalb der nächsten 14 Tage an uns:\nIBAN: DE12 3456 7890 1234 5678 00\nBIC: ABCDDEFFXXX\nBank: Musterbank").FontSize(10);
+
+                        content.Item().PaddingTop(10).Text("Vielen Dank für Ihren Auftrag!").Italic().FontColor(Colors.Grey.Darken2);
+                    });
+
+                    page.Footer().AlignCenter().Text(txt =>
+                    {
+                        txt.Span("Musterfirma GmbH | USt-IdNr DE999999999 | Geschäftsführer: Max Mustermann\nErstellt mit ERP").FontSize(8);
+                    });
+                });
+            })
+            .GeneratePdf("SimpleInvoice.pdf");
+        }
+
+        static IContainer CellStyle(IContainer container) =>
+        container.BorderBottom(1).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5).PaddingHorizontal(2);
+
+        static IContainer CellStyleHeader(IContainer container) =>
+        container.Background(Colors.Grey.Lighten4).PaddingVertical(5).PaddingHorizontal(2);
     }
 }
