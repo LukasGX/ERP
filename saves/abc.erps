@@ -1,0 +1,22 @@
+﻿{
+  "SchemaVersion": 1,
+  "InstanceName": "abc",
+  "FileBaseName": "abc",
+  "Warning": "TOP SECRET: This file contains sensitive company and bank information. Protect it and do NOT share or commit it.",
+  "Company": {
+    "Name": "Musterfirma",
+    "Address": {
+      "Street": "Musterstra\u00DFe 17",
+      "City": "Musterstadt",
+      "PostalCode": "12345",
+      "Country": "Deutschland"
+    },
+    "Email": "kontakt@musterfirma.de",
+    "PhoneNumber": "\u002B49 123 12345678",
+    "BankInfo": {
+      "BankName": "Musterbank",
+      "IBAN": "DE02120300000000202051",
+      "BIC": "NOLADE20STS"
+    }
+  }
+}

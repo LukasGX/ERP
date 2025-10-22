@@ -1,5 +1,5 @@
 ﻿{
-  "SchemaVersion": 4,
+  "SchemaVersion": 5,
   "InstanceName": "abc",
   "FileBaseName": "abc",
   "OwnCapital": 200000,
@@ -9,15 +9,15 @@
     "LastStockId": 6,
     "LastSlotId": 6,
     "LastArticleTypeId": 6,
-    "LastOrderId": 7,
+    "LastOrderId": 8,
     "LastSelfOrderId": 1,
     "LastPricesId": 6,
-    "LastBillId": 6,
+    "LastBillId": 7,
     "LastPaymentTermsId": 5,
     "LastSectionId": 6,
     "LastEmployeeId": 1,
     "LastCustomerId": 7,
-    "LastOrderItemId": 868462
+    "LastOrderItemId": 868463
   },
   "ArticleTypes": [
     {
@@ -125,103 +125,14 @@
   ],
   "Orders": [
     {
-      "Id": 0,
+      "Id": 8,
       "CustomerId": 0,
       "Status": "Pending",
       "Articles": [
         {
-          "Id": 868440,
-          "TypeId": 1,
-          "Stock": 3
-        },
-        {
-          "Id": 868441,
-          "TypeId": 5,
-          "Stock": 20
-        }
-      ]
-    },
-    {
-      "Id": 1,
-      "CustomerId": 1,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868442,
-          "TypeId": 1,
-          "Stock": 1
-        }
-      ]
-    },
-    {
-      "Id": 2,
-      "CustomerId": 2,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868443,
-          "TypeId": 2,
+          "Id": 868463,
+          "TypeId": 0,
           "Stock": 2
-        }
-      ]
-    },
-    {
-      "Id": 3,
-      "CustomerId": 3,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868444,
-          "TypeId": 3,
-          "Stock": 3
-        }
-      ]
-    },
-    {
-      "Id": 4,
-      "CustomerId": 4,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868445,
-          "TypeId": 4,
-          "Stock": 4
-        }
-      ]
-    },
-    {
-      "Id": 5,
-      "CustomerId": 5,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868446,
-          "TypeId": 5,
-          "Stock": 5
-        }
-      ]
-    },
-    {
-      "Id": 6,
-      "CustomerId": 6,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868447,
-          "TypeId": 6,
-          "Stock": 6
-        }
-      ]
-    },
-    {
-      "Id": 7,
-      "CustomerId": 1,
-      "Status": "Pending",
-      "Articles": [
-        {
-          "Id": 868448,
-          "TypeId": 2,
-          "Stock": 3
         }
       ]
     }
@@ -358,53 +269,12 @@
   ],
   "Bills": [
     {
-      "Id": 0,
-      "TotalPrice": 172,
-      "OrderId": 0,
+      "Id": 7,
+      "TotalPrice": 6,
+      "OrderId": 8,
       "CustomerId": 0,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 1,
-      "TotalPrice": 4,
-      "OrderId": 1,
-      "CustomerId": 1,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 2,
-      "TotalPrice": 10,
-      "OrderId": 2,
-      "CustomerId": 2,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 3,
-      "TotalPrice": 18,
-      "OrderId": 3,
-      "CustomerId": 3,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 4,
-      "TotalPrice": 28,
-      "OrderId": 4,
-      "CustomerId": 4,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 5,
-      "TotalPrice": 40,
-      "OrderId": 5,
-      "CustomerId": 5,
-      "PaymentTermsId": 0
-    },
-    {
-      "Id": 6,
-      "TotalPrice": 90,
-      "OrderId": 6,
-      "CustomerId": 6,
-      "PaymentTermsId": 0
+      "PaymentTermsId": 0,
+      "PricesId": 0
     }
   ],
   "PaymentTerms": [

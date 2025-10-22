@@ -26,9 +26,6 @@ namespace ERP_Fix
 
         static void Main(string[] args)
         {
-            PDF.Bill();
-            return;
-
             // Catch any unhandled exception so the console doesn’t close instantly when launched by double-click.
             AppDomain.CurrentDomain.UnhandledException += (sender, evt) =>
             {
@@ -340,6 +337,11 @@ namespace ERP_Fix
             company = new Company(companyName, new Address(street, city, postalCode, country), email, phoneNumber, new BankInformation(bankName, iban, bic));
         }
 
+        public Company? GetCompany()
+        {
+            return company;
+        }
+
         public string FormatAmount(double amount)
         {
             return amount.ToString("C", currentCurrencyFormat);
@@ -640,6 +642,7 @@ namespace ERP_Fix
             }
 
             // Prices
+            var pricesById = new Dictionary<int, Prices>();
             foreach (var p in snapshot.Prices)
             {
                 var dict = new Dictionary<ArticleType, double>();
@@ -650,7 +653,9 @@ namespace ERP_Fix
                     else
                         Console.WriteLine($"[WARN] Unknown ArticleTypeId {kvp.Key} in Prices {p.Id}.");
                 }
-                mgr.prices.Add(new Prices(p.Id, dict));
+                var pr = new Prices(p.Id, dict);
+                mgr.prices.Add(pr);
+                pricesById[p.Id] = pr;
             }
 
             // Payment terms (load before bills so bills can reference them)
@@ -695,7 +700,44 @@ namespace ERP_Fix
                     termsForBill = def;
                 }
 
-                var bill = new Bill(b.Id, b.TotalPrice, ord, termsForBill) { Customer = cust };
+                // Attach a Prices reference; prefer the specific PricesId if available (schema v5+), else use a smarter fallback
+                Prices pricesForBill;
+                if (b.PricesId != 0 && pricesById.TryGetValue(b.PricesId, out var prFound))
+                {
+                    pricesForBill = prFound;
+                }
+                else
+                {
+                    // Fallback strategy:
+                    // 1) If there's exactly one Prices entry, use it.
+                    // 2) Otherwise, pick the Prices whose price list covers the most article types in the order (best coverage).
+                    //    Break ties by choosing the lowest Id to keep it deterministic.
+                    // 3) If none found (no prices in snapshot), create an empty Prices with Id 0.
+                    if (mgr.prices.Count == 1)
+                    {
+                        pricesForBill = mgr.prices[0];
+                        Console.WriteLine($"[WARN] Bill {b.Id}: PricesId missing/not found. Falling back to the only available Prices {pricesForBill.Id}.");
+                    }
+                    else if (mgr.prices.Count > 1)
+                    {
+                        var requiredTypes = new HashSet<ArticleType>(ord.Articles.Select(ai => ai.Type));
+                        var best = mgr.prices
+                            .Select(pr => new { pr, coverage = pr.PriceList.Keys.Count(k => requiredTypes.Contains(k)) })
+                            .OrderByDescending(x => x.coverage)
+                            .ThenBy(x => x.pr.Id)
+                            .FirstOrDefault();
+
+                        pricesForBill = best?.pr ?? mgr.prices.OrderBy(x => x.Id).First();
+                        Console.WriteLine($"[WARN] Bill {b.Id}: PricesId {(b.PricesId == 0 ? "missing" : $"{b.PricesId} not found")} in snapshot. Selected Prices {pricesForBill.Id} by fallback.");
+                    }
+                    else
+                    {
+                        pricesForBill = new Prices(0, new Dictionary<ArticleType, double>());
+                        Console.WriteLine($"[WARN] Bill {b.Id}: No Prices defined in snapshot. Using empty Prices.");
+                    }
+                }
+
+                var bill = new Bill(b.Id, b.TotalPrice, ord, termsForBill, pricesForBill);
                 mgr.bills.Add(bill);
             }
 
@@ -787,7 +829,15 @@ namespace ERP_Fix
                 Arrived = so.Arrived.Select(ToDtoOrderItem).ToList()
             }).ToList();
 
-            var dtoPrices = prices.Select(p => new DTO_Prices
+            // Ensure any Prices referenced by Bills are also saved, even if not present in the global prices list
+            var allPrices = new List<Prices>(prices);
+            foreach (var b in bills)
+            {
+                if (b?.Prices != null && !allPrices.Any(pr => pr.Id == b.Prices.Id))
+                    allPrices.Add(b.Prices);
+            }
+
+            var dtoPrices = allPrices.Select(p => new DTO_Prices
             {
                 Id = p.Id,
                 PriceListByTypeId = p.PriceList.ToDictionary(kvp => kvp.Key.Id, kvp => kvp.Value)
@@ -799,7 +849,8 @@ namespace ERP_Fix
                 TotalPrice = b.TotalPrice,
                 OrderId = b.Order.Id,
                 CustomerId = b.Customer.Id,
-                PaymentTermsId = b.PaymentTerms.Id
+                PaymentTermsId = b.PaymentTerms.Id,
+                PricesId = b.Prices?.Id ?? 0
             }).ToList();
 
             var dtoPaymentTerms = paymentTerms.Select(pt => new DTO_PaymentTerms
@@ -849,7 +900,7 @@ namespace ERP_Fix
 
             return new ERPInstanceSnapshot
             {
-                SchemaVersion = 4,
+                SchemaVersion = 5,
                 InstanceName = this.InstanceName,
                 FileBaseName = this.FileBaseName,
                 OwnCapital = this.ownCapital,
@@ -1513,7 +1564,7 @@ namespace ERP_Fix
 
             totalPrice = Math.Round(totalPrice, 2);
 
-            Bill generated = new Bill(lastBillId + 1, totalPrice, order, terms);
+            Bill generated = new Bill(lastBillId + 1, totalPrice, order, terms, prices);
 
             bills.Add(generated);
             lastBillId += 1;
@@ -2052,9 +2103,10 @@ namespace ERP_Fix
         public Order Order { get; }
         public Customer Customer { get; set; }
         public PaymentTerms PaymentTerms { get; set; }
+        public Prices Prices { get; set; }
         public DateOnly BillDate { get; set; }
 
-        public Bill(int id, double totalPrice, Order order, PaymentTerms paymentTerms)
+        public Bill(int id, double totalPrice, Order order, PaymentTerms paymentTerms, Prices prices)
         {
             Id = id;
             TotalPrice = totalPrice;
@@ -2062,6 +2114,7 @@ namespace ERP_Fix
             Customer = order.Customer;
             PaymentTerms = paymentTerms;
             BillDate = DateOnly.FromDateTime(DateTime.Now);
+            Prices = prices;
         }
     }
 
@@ -2291,7 +2344,7 @@ namespace ERP_Fix
     internal class DTO_Order { public int Id { get; set; } public int CustomerId { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); }
     internal class DTO_SelfOrder { public int Id { get; set; } public string Status { get; set; } = string.Empty; public List<DTO_OrderItem> Articles { get; set; } = new(); public List<DTO_OrderItem> Arrived { get; set; } = new(); }
     internal class DTO_Prices { public int Id { get; set; } public Dictionary<int, double> PriceListByTypeId { get; set; } = new(); }
-    internal class DTO_Bill { public int Id { get; set; } public double TotalPrice { get; set; } public int OrderId { get; set; } public int CustomerId { get; set; } public int PaymentTermsId { get; set; } }
+    internal class DTO_Bill { public int Id { get; set; } public double TotalPrice { get; set; } public int OrderId { get; set; } public int CustomerId { get; set; } public int PaymentTermsId { get; set; } public int PricesId { get; set; } }
     internal class DTO_PaymentTerms { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int DaysUntilDue { get; set; } public int? DiscountDays { get; set; } public double? DiscountPercent { get; set; } public double? PenaltyRate { get; set; } public double AbsolutePenalty { get; set; } public bool UsingPenaltyRate { get; set; } }
     internal class DTO_Section { public int Id { get; set; } public string Name { get; set; } = string.Empty; }
     internal class DTO_Employee { public int Id { get; set; } public string Name { get; set; } = string.Empty; public int WorksInSectionId { get; set; } public string Street { get; set; } = string.Empty; public string City { get; set; } = string.Empty; public string PostalCode { get; set; } = string.Empty; public string Country { get; set; } = string.Empty; public string Email { get; set; } = string.Empty; public string PhoneNumber { get; set; } = string.Empty; }
@@ -2435,7 +2488,7 @@ namespace ERP_Fix
             QuestPDF.Settings.License = LicenseType.Community;
         }
 
-        public static void Bill()
+        public static void Bill(Company company, Bill bill)
         {
             Settings();
 
@@ -2452,18 +2505,22 @@ namespace ERP_Fix
                         header.RelativeItem().Column(col =>
                         {
                             col.Item().Text("RECHNUNG").FontSize(24).Bold().FontColor(Colors.Blue.Medium);
-                            col.Item().Text("Musterfirma GmbH").Bold();
-                            col.Item().Text("Musterstraße 1\n12345 Musterstadt");
-                            col.Item().Text("info@musterfirma.de\n+49 123 4567890");
+                            col.Item().Text(company.Name).Bold();
+                            col.Item().Text($"{company.Address.Street}\n{company.Address.PostalCode} {company.Address.City}, {company.Address.Country}").FontSize(10);
+                            col.Item().Text($"{company.Email}\n{company.PhoneNumber}");
                         });
 
                         // Right: Invoice metadata
                         header.ConstantItem(200).Column(col =>
                         {
                             col.Item().Text("Rechnungsnr: 0001").AlignRight();
-                            col.Item().Text("Datum: 21.10.2025").AlignRight();
-                            col.Item().Text("Kunde: Erika Mustermann").AlignRight();
-                            col.Item().Text("Musterweg 11\n12345 Musterstadt").AlignRight();
+                            col.Item().Text($"Datum: {bill.BillDate}").AlignRight();
+                            col.Item().Text($"Kunde: {bill.Customer.Name}").AlignRight();
+                            var addr = bill.Customer?.Information?.Address;
+                            var addrText = addr != null
+                                ? $"{addr.Street}\n{addr.PostalCode} {addr.City}, {addr.Country}"
+                                : "";
+                            col.Item().Text(addrText).AlignRight();
                         });
                     });
 
@@ -2486,36 +2543,40 @@ namespace ERP_Fix
                             table.Cell().Element(CellStyleHeader).Text("Stückpreis").SemiBold();
                             table.Cell().Element(CellStyleHeader).Text("Preis").SemiBold();
 
-                            // First item row
-                            table.Cell().Element(CellStyle).Text("Mütze");
-                            table.Cell().Element(CellStyle).Text("2");
-                            table.Cell().Element(CellStyle).Text("20,00 €");
-                            table.Cell().Element(CellStyle).Text("40,00 €");
+                            bill.Order.Articles.ForEach(article =>
+                            {
+                                var typeName = article.Type.Name;
+                                var qty = article.Stock;
+                                // Lookup unit price; fall back to 0.00 if not present
+                                double unitPrice = 0.0;
+                                if (bill.Prices?.PriceList != null && bill.Prices.PriceList.TryGetValue(article.Type, out var found))
+                                    unitPrice = found;
+                                var lineTotal = unitPrice * qty;
 
-                            // Second item row
-                            table.Cell().Element(CellStyle).Text("Jacke");
-                            table.Cell().Element(CellStyle).Text("1");
-                            table.Cell().Element(CellStyle).Text("80,00 €");
-                            table.Cell().Element(CellStyle).Text("80,00 €");
+                                table.Cell().Element(CellStyle).Text(typeName);
+                                table.Cell().Element(CellStyle).Text(qty.ToString());
+                                table.Cell().Element(CellStyle).Text(unitPrice.ToString("C2", CultureInfo.CurrentCulture));
+                                table.Cell().Element(CellStyle).Text(lineTotal.ToString("C2", CultureInfo.CurrentCulture));
+                            });
 
                             // Total row
                             table.Cell().ColumnSpan(3).Element(CellStyle).AlignRight().Text("Gesamt:").SemiBold();
-                            table.Cell().Element(CellStyle).Text("120,00 €").SemiBold();
+                            table.Cell().Element(CellStyle).Text(bill.TotalPrice.ToString("C2", CultureInfo.CurrentCulture)).SemiBold();
                         });
 
                         // Payment info & thanks
-                        content.Item().PaddingTop(25).Text("Bitte überweisen Sie den Betrag innerhalb der nächsten 14 Tage an uns:\nIBAN: DE12 3456 7890 1234 5678 00\nBIC: ABCDDEFFXXX\nBank: Musterbank").FontSize(10);
+                        content.Item().PaddingTop(25).Text($"Bitte überweisen Sie den Betrag innerhalb der nächsten {bill.PaymentTerms.DaysUntilDue} Tage an uns:\nIBAN: {company.BankInfo.IBAN}\nBIC: {company.BankInfo.BIC}\nBank: {company.BankInfo.BankName}").FontSize(10);
 
                         content.Item().PaddingTop(10).Text("Vielen Dank für Ihren Auftrag!").Italic().FontColor(Colors.Grey.Darken2);
                     });
 
                     page.Footer().AlignCenter().Text(txt =>
                     {
-                        txt.Span("Musterfirma GmbH | USt-IdNr DE999999999 | Geschäftsführer: Max Mustermann\nErstellt mit ERP").FontSize(8);
+                        txt.Span($"{company.Name}\nErstellt mit ERP").FontSize(8);
                     });
                 });
             })
-            .GeneratePdf("SimpleInvoice.pdf");
+            .GeneratePdf($"Bill-{((bill.Customer?.Name ?? "Customer").Replace(" ", ""))}-{bill.Id}.pdf");
         }
 
         static IContainer CellStyle(IContainer container) =>

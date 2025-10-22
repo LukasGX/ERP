@@ -510,31 +510,45 @@ namespace ERP_Fix
                 ColorScheme = schemes[2]
             };
 
-            var buttonOwnCapital = new Button("Eigenkapital verwalten")
+            var buttonBillToPDF = new Button("Rechnung zu PDF")
             {
                 X = 2,
                 Y = 5,
                 ColorScheme = schemes[2]
             };
 
-            var buttonSave = new Button("Speichern")
+            var buttonOwnCapital = new Button("Eigenkapital verwalten")
+            {
+                X = 2,
+                Y = 6,
+                ColorScheme = schemes[2]
+            };
+
+            var buttonCompany = new Button("Firma verwalten")
             {
                 X = 2,
                 Y = 7,
                 ColorScheme = schemes[2]
             };
 
+            var buttonSave = new Button("Speichern")
+            {
+                X = 2,
+                Y = 9,
+                ColorScheme = schemes[2]
+            };
+
             var buttonClose = new Button("Schließen")
             {
                 X = 2,
-                Y = 8,
+                Y = 10,
                 ColorScheme = schemes[2]
             };
 
             var labelOwnCapital = new Label($"Eigenkapital: {erpManager.ownCapital:F2} €")
             {
                 X = 2,
-                Y = 10,
+                Y = 12,
                 ColorScheme = schemes[4]
             };
 
@@ -543,7 +557,7 @@ namespace ERP_Fix
             var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
             {
                 X = 2,
-                Y = 12,
+                Y = 14,
                 ColorScheme = schemes[4]
             };
             win.Add(labelWindowSwitch);
@@ -551,7 +565,7 @@ namespace ERP_Fix
             var labelExitProgram = new Label("Programm beenden mit Esc")
             {
                 X = 2,
-                Y = 13,
+                Y = 15,
                 ColorScheme = schemes[4]
             };
             win.Add(labelExitProgram);
@@ -560,7 +574,9 @@ namespace ERP_Fix
             Action? buttonDeleteClick = null;
             Action? buttonArticleOpsClick = null;
             Action? buttonArticleScanClick = null;
+            Action? buttonBillToPDFClick = null;
             Action? buttonOwnCapitalClick = null;
+            Action? buttonCompanyClick = null;
             Action? buttonSaveClick = null;
             Action? buttonCloseClick = null;
 
@@ -605,19 +621,37 @@ namespace ERP_Fix
                 buttonArticleScan.Clicked += buttonArticleScanClick;
                 win.Add(buttonArticleScan);
 
-                var buttonOwnCapital = new Button("Eigenkapital verwalten")
+                var buttonBillToPDF = new Button("Rechnung zu PDF")
                 {
                     X = 2,
                     Y = 5,
                     ColorScheme = schemes[2]
                 };
+                buttonBillToPDF.Clicked += buttonBillToPDFClick;
+                win.Add(buttonBillToPDF);
+
+                var buttonOwnCapital = new Button("Eigenkapital verwalten")
+                {
+                    X = 2,
+                    Y = 6,
+                    ColorScheme = schemes[2]
+                };
                 buttonOwnCapital.Clicked += buttonOwnCapitalClick;
                 win.Add(buttonOwnCapital);
+
+                var buttonCompany = new Button("Firma verwalten")
+                {
+                    X = 2,
+                    Y = 7,
+                    ColorScheme = schemes[2]
+                };
+                buttonCompany.Clicked += buttonCompanyClick;
+                win.Add(buttonCompany);
 
                 var buttonSave = new Button("Speichern")
                 {
                     X = 2,
-                    Y = 7,
+                    Y = 9,
                     ColorScheme = schemes[2]
                 };
                 buttonSave.Clicked += buttonSaveClick;
@@ -626,7 +660,7 @@ namespace ERP_Fix
                 var buttonClose = new Button("Schließen")
                 {
                     X = 2,
-                    Y = 8,
+                    Y = 10,
                     ColorScheme = schemes[2]
                 };
                 buttonClose.Clicked += buttonCloseClick;
@@ -635,7 +669,7 @@ namespace ERP_Fix
                 var labelOwnCapital = new Label($"Eigenkapital: {erpManager.ownCapital:F2} €")
                 {
                     X = 2,
-                    Y = 10,
+                    Y = 12,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelOwnCapital);
@@ -643,7 +677,7 @@ namespace ERP_Fix
                 var labelWindowSwitch = new Label("Fenster wechseln mit F6/F7")
                 {
                     X = 2,
-                    Y = 12,
+                    Y = 14,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelWindowSwitch);
@@ -651,7 +685,7 @@ namespace ERP_Fix
                 var labelExitProgram = new Label("Programm beenden mit Esc")
                 {
                     X = 2,
-                    Y = 13,
+                    Y = 15,
                     ColorScheme = schemes[4]
                 };
                 win.Add(labelExitProgram);
@@ -667,7 +701,9 @@ namespace ERP_Fix
             buttonDeleteClick = () => { DeletingElementMenu(win, schemes, DoAfter); };
             buttonArticleOpsClick = () => { ArticleOperationsMenu(win, schemes, DoAfter); };
             buttonArticleScanClick = () => { ScanArticle(win, schemes, DoAfter); };
+            buttonBillToPDFClick = () => { BillToPDFMenu(win, schemes, DoAfter); };
             buttonOwnCapitalClick = () => { ManageOwnCapitalMenu(win, schemes, DoAfter); };
+            buttonCompanyClick = () => { ManageCompanyMenu(win, schemes, DoAfter); };
             buttonCloseClick = () => { CloseInstance(win, schemes); };
             buttonSaveClick = () => { SaveInstance(win, schemes, DoAfter); };
 
@@ -683,8 +719,14 @@ namespace ERP_Fix
             buttonArticleScan.Clicked += buttonArticleScanClick;
             win.Add(buttonArticleScan);
 
+            buttonBillToPDF.Clicked += buttonBillToPDFClick;
+            win.Add(buttonBillToPDF);
+
             buttonOwnCapital.Clicked += buttonOwnCapitalClick;
             win.Add(buttonOwnCapital);
+
+            buttonCompany.Clicked += buttonCompanyClick;
+            win.Add(buttonCompany);
 
             buttonSave.Clicked += buttonSaveClick;
             win.Add(buttonSave);
@@ -4593,6 +4635,102 @@ namespace ERP_Fix
             Application.Top.SetNeedsDisplay();
         }
 
+        private void BillToPDFMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            win.RemoveAll();
+
+            // Title / instructions
+            win.Add(new Label("Rechnungs-ID eingeben und PDF erzeugen:")
+            {
+                X = 2,
+                Y = 1,
+                ColorScheme = schemes[1]
+            });
+
+            var idField = new TextField("")
+            {
+                X = 2,
+                Y = 2,
+                Width = 20,
+                ColorScheme = schemes[1]
+            };
+            win.Add(idField);
+
+            Label? errorLabel = null;
+
+            void ShowError(string msg)
+            {
+                if (errorLabel != null)
+                {
+                    win.Remove(errorLabel);
+                }
+                errorLabel = new Label(msg)
+                {
+                    X = 2,
+                    Y = 6,
+                    ColorScheme = schemes[4]
+                };
+                win.Add(errorLabel);
+                Application.Top.SetNeedsDisplay();
+            }
+
+            var generateBtn = new Button("PDF erzeugen")
+            {
+                X = 2,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            generateBtn.Clicked += () =>
+            {
+                // Validate company exists
+                var company = erpManager?.GetCompany();
+                if (company == null)
+                {
+                    ShowError("Fehler: Keine Firmendaten vorhanden. Bitte Firma zuerst anlegen.");
+                    return;
+                }
+
+                // Parse bill ID
+                var text = idField.Text?.ToString();
+                if (!int.TryParse(text, out var billId))
+                {
+                    ShowError("Ungültige Rechnungs-ID.");
+                    return;
+                }
+
+                // Find bill
+                var bill = erpManager!.GetAllBills().FirstOrDefault(b => b.Id == billId);
+                if (bill == null)
+                {
+                    ShowError($"Rechnung mit ID {billId} nicht gefunden.");
+                    return;
+                }
+
+                try
+                {
+                    PDF.Bill(company, bill);
+                    // Inform user of success
+                    ShowError($"PDF erzeugt: Bill-{bill.Customer.Name.Replace(" ", "")}-{bill.Id}.pdf");
+                }
+                catch (Exception ex)
+                {
+                    ShowError($"Fehler beim Erzeugen der PDF: {ex.Message}");
+                }
+            };
+            win.Add(generateBtn);
+
+            var backBtn = new Button("Zurück")
+            {
+                X = 20,
+                Y = 4,
+                ColorScheme = schemes[2]
+            };
+            backBtn.Clicked += () => { DoAfter(); };
+            win.Add(backBtn);
+
+            Application.Top.SetNeedsDisplay();
+        }
+
         private void ManageOwnCapitalMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
         {
             win.RemoveAll();
@@ -4619,6 +4757,188 @@ namespace ERP_Fix
                 posY += 2;
             }
 
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void ManageCompanyMenu(Window win, List<ColorScheme> schemes, Action DoAfter)
+        {
+            // Render a full-sized details window next to the main window
+            if (mainWindow == null)
+            {
+                // Fallback: render inline minimal controls
+                win.RemoveAll();
+                var backBtn = new Button("Zurück") { X = 2, Y = 1, ColorScheme = schemes[2] };
+                backBtn.Clicked += () => { DoAfter(); };
+                win.Add(backBtn);
+                Application.Top.SetNeedsDisplay();
+                return;
+            }
+
+            win.RemoveAll();
+            win.Add(new Label("Firmenansicht rechts") { X = 2, Y = 1, ColorScheme = schemes[2] });
+
+            var detail = new Window("Firma - Details")
+            {
+                X = Pos.Right(mainWindow),
+                Y = 1,
+                Width = Dim.Fill(),
+                Height = Dim.Fill(),
+                ColorScheme = schemes[0]
+            };
+
+            int y = 1;
+            var company = erpManager?.GetCompany();
+            if (company == null)
+            {
+                detail.Add(new Label("Keine Firmendaten hinterlegt.") { X = 2, Y = y++, ColorScheme = schemes[4] });
+                y++;
+                var addBtn = new Button("Firma anlegen") { X = 2, Y = y, ColorScheme = schemes[2] };
+                addBtn.Clicked += () => RenderCompanyCreateForm(detail, win, schemes, DoAfter);
+                detail.Add(addBtn);
+                y += 2;
+            }
+            else
+            {
+                detail.Add(new Label($"Name: {company.Name}") { X = 2, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label("Adresse:") { X = 2, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  Straße: {company.Address?.Street}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  Stadt: {company.Address?.City}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  PLZ: {company.Address?.PostalCode}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  Land: {company.Address?.Country}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+
+                y++;
+                detail.Add(new Label("Kontakt:") { X = 2, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  E-Mail: {company.Email}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  Telefon: {company.PhoneNumber}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+
+                y++;
+                detail.Add(new Label("Bankverbindung:") { X = 2, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  Bankname: {company.BankInfo?.BankName}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  IBAN: {company.BankInfo?.IBAN}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+                detail.Add(new Label($"  BIC: {company.BankInfo?.BIC}") { X = 4, Y = y++, ColorScheme = schemes[1] });
+
+                y++;
+                // Security reminder reflecting the top-secret .erps file
+                var warn = new Label("Hinweis: Firmen- und Bankdaten werden in einer geheimen .erps-Datei gespeichert. Diese Datei ist TOP SECRET und sollte geschützt werden.")
+                {
+                    X = 2,
+                    Y = y++,
+                    ColorScheme = schemes[4]
+                };
+                detail.Add(warn);
+            }
+
+            y++;
+            var closeBtn = new Button("Schließen") { X = 2, Y = y, ColorScheme = schemes[2] };
+            closeBtn.Clicked += () =>
+            {
+                Application.Top.Remove(detail);
+                // Restore focus and underlying main view
+                RestoreExtraWindowsLayout(schemes);
+                DoAfter();
+                Application.Top.SetNeedsDisplay();
+            };
+            detail.Add(closeBtn);
+
+            // Hide secondary windows while showing the full details window
+            foreach (var kv in windows)
+            {
+                kv.Value.Visible = false;
+            }
+
+            Application.Top.Add(detail);
+            detail.SetFocus();
+            Application.Top.SetNeedsDisplay();
+        }
+
+        private void RenderCompanyCreateForm(Window hostDetail, Window leftPanel, List<ColorScheme> schemes, Action DoAfter)
+        {
+            hostDetail.RemoveAll();
+            hostDetail.Title = "Firma – Anlegen";
+
+            int y = 1;
+            hostDetail.Add(new Label("Name:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfName = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfName);
+
+            hostDetail.Add(new Label("Straße:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfStreet = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfStreet);
+
+            hostDetail.Add(new Label("Stadt:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfCity = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfCity);
+
+            hostDetail.Add(new Label("PLZ:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfPostal = new TextField("") { X = 18, Y = y++, Width = 20, ColorScheme = schemes[1] };
+            hostDetail.Add(tfPostal);
+
+            hostDetail.Add(new Label("Land:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfCountry = new TextField("") { X = 18, Y = y++, Width = 30, ColorScheme = schemes[1] };
+            hostDetail.Add(tfCountry);
+
+            y++;
+            hostDetail.Add(new Label("E-Mail:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfEmail = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfEmail);
+
+            hostDetail.Add(new Label("Telefon:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfPhone = new TextField("") { X = 18, Y = y++, Width = 30, ColorScheme = schemes[1] };
+            hostDetail.Add(tfPhone);
+
+            y++;
+            hostDetail.Add(new Label("Bankname:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfBank = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfBank);
+
+            hostDetail.Add(new Label("IBAN:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfIban = new TextField("") { X = 18, Y = y++, Width = 40, ColorScheme = schemes[1] };
+            hostDetail.Add(tfIban);
+
+            hostDetail.Add(new Label("BIC:") { X = 2, Y = y, ColorScheme = schemes[1] });
+            var tfBic = new TextField("") { X = 18, Y = y++, Width = 30, ColorScheme = schemes[1] };
+            hostDetail.Add(tfBic);
+
+            y++;
+            var error = new Label("") { X = 2, Y = y++, ColorScheme = schemes[4] };
+            hostDetail.Add(error);
+
+            var btnSave = new Button("Speichern") { X = 2, Y = y, ColorScheme = schemes[2] };
+            var btnCancel = new Button("Abbrechen") { X = Pos.Right(btnSave) + 2, Y = y, ColorScheme = schemes[2] };
+            btnSave.Clicked += () =>
+            {
+                var name = tfName.Text.ToString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    error.Text = "Bitte einen Firmennamen angeben.";
+                    return;
+                }
+                var street = tfStreet.Text.ToString() ?? string.Empty;
+                var city = tfCity.Text.ToString() ?? string.Empty;
+                var postal = tfPostal.Text.ToString() ?? string.Empty;
+                var country = tfCountry.Text.ToString() ?? string.Empty;
+                var email = tfEmail.Text.ToString() ?? string.Empty;
+                var phone = tfPhone.Text.ToString() ?? string.Empty;
+                var bank = tfBank.Text.ToString() ?? string.Empty;
+                var iban = tfIban.Text.ToString() ?? string.Empty;
+                var bic = tfBic.Text.ToString() ?? string.Empty;
+
+                erpManager?.SetCompany(name, street, city, postal, country, email, phone, bank, iban, bic);
+
+                // Re-open details view with the newly set data
+                Application.Top.Remove(hostDetail);
+                ManageCompanyMenu(leftPanel, schemes, DoAfter);
+            };
+            btnCancel.Clicked += () =>
+            {
+                // Return back to the empty details page
+                Application.Top.Remove(hostDetail);
+                ManageCompanyMenu(leftPanel, schemes, DoAfter);
+            };
+            hostDetail.Add(btnSave);
+            hostDetail.Add(btnCancel);
+
+            hostDetail.SetFocus();
             Application.Top.SetNeedsDisplay();
         }
 
